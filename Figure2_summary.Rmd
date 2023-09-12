@@ -33,12 +33,12 @@ library(naturalsort)
 # Set ramp connection
 pkg.globals <- setConnectionToRaMP(
   dbname = "ramp", username = "root", conpass = "ADMIN",
-  host = "localhost",socket = "/stornext/Home/data/allstaff/l/lu.t/mysql/var/run/mysqld/mysql.sock")
+  host = "localhost",socket = "~/mysql.sock")
 ```
 
 
 ```{r figure2A}
-data = readRDS("/stornext/Bioinf/data/lab_brain_cancer/projects/tme_spatial/metabolomics/221222_optimization/data/output/potential_list_long_2023-02-10.RDS")
+data = readRDS(".../potential_list_long_small_molecules.RDS")
 
 matrix_polarity = paste0(data$matrix, data$polarity)
 #
@@ -51,11 +51,11 @@ num = c()
 num_mz = c()
 num_backgroundmz = c()
 #
-peaks_file = naturalsort(list.files("/stornext/Bioinf/data/lab_brain_cancer/projects/tme_spatial/metabolomics/221222_optimization/data/output",
+peaks_file = naturalsort(list.files("~/small_molecule_processed_data",
                         pattern = "Tissue1_T_peaksum.RData"))
 
 for(i in peaks_file){
-  load(paste0("/stornext/Bioinf/data/lab_brain_cancer/projects/tme_spatial/metabolomics/221222_optimization/data/output/",i))
+  load(paste0(i))
   num_backgroundmz = c(num_backgroundmz, nrow(peaksum_b_df))
   num_mz =c(num_mz, nrow(peaksum_df))
 }
