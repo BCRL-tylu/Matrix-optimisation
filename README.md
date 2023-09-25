@@ -1,2 +1,2 @@
 # Matrix-optimisation
-The Cardinal processing and analysis codes
+The Cardinal processing and analytical codes
