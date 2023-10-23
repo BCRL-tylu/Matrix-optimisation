@@ -1,0 +1,427 @@
+---
+title: "Figure4C"
+output: html_document
+date: "2023-08-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libs}
+# overlaped pathways between each matrix
+.libPaths("/stornext/Bioinf/data/lab_brain_cancer/users/t_lu/R/x86_64-pc-linux-gnu-library/4.2")
+library(ggplot2)
+library(MASS) 
+library(reshape2)
+library(RaMP)
+library(ggplot2movies)
+library(data.table)
+library(biomaRt)
+library(fgsea)
+library(RRHO2)
+library(dplyr)
+pkg.globals <- setConnectionToRaMP(
+  dbname = "ramp", username = "root", conpass = "ADMIN",
+  host = "localhost",socket = "/stornext/Home/data/allstaff/l/lu.t/mysql/var/run/mysqld/mysql.sock")
+# Set root directory
+root_directory = "/stornext/Home/data/allstaff/l/lu.t/paper_final"
+```
+
+```{r getranks}
+data = readRDS(paste0(root_directory,"/feature_files/small_molecule_annotated_list.RDS")) %>% arrange(desc(abs(diff_mean))) %>% mutate(matrix_polarity = paste0(matrix_short,polarity))
+matrix_polarity = paste0(data$matrix_short,data$polarity)
+#
+if(length(grep(colnames(data), pattern = "matrix_polarity")) == 0){
+  data = cbind(data, matrix_polarity)
+}
+pathwaydf <- RaMP:::getPathwayFromAnalyte(paste0("HMDB:",unique(data$accession)), includeRaMPids = TRUE, 
+                                          NameOrIds = "ids", find_synonym = FALSE)
+
+
+pathwaydf <- pathwaydf[!duplicated(pathwaydf$pathwayRampId),] %>% mutate(name_id = paste0(pathwayName,"(",pathwaySource,")"))
+
+query <- "select * from analytehaspathway"
+con <- connectToRaMP()
+allids <- RMariaDB::dbGetQuery(con, query)
+RMariaDB::dbDisconnect(con)
+allids <- allids[!duplicated(allids), ]
+######
+
+small_molecule_pathways = list()
+
+for(i in 1:length(unique(pathwaydf$pathwayName))){
+  temp = pathwaydf[which(pathwaydf$pathwayName == unique(pathwaydf$pathwayName)[i]),]
+  all_in_temp = allids[which(allids$pathwayRampId == unique(temp$pathwayRampId)),]
+  metabolites = all_in_temp[which(grepl(pattern = "RAMP_C",all_in_temp$rampId)),]
+  
+###################
+  small_molecule_pathways[[unique(pathwaydf$pathwayName)[i]]] = unlist(lapply(metabolites$rampId, function(x){
+    if(x %in% temp$rampId){
+      a = temp[which(temp$rampId == x),]$inputId
+      return(a)
+    }else{
+      a = x
+      return(a)
+    }
+  }))
+}
+
+small_molecule_pathways[sapply(small_molecule_pathways, is.null)] <- NULL
+```
+
+```{r RNA}
+load(paste0(root_directory,"/RNA/combined_gene_count.RData"))
+View(combined)
+mouse_human_genes = read.csv("http://www.informatics.jax.org/downloads/reports/HOM_MouseHumanSequence.rpt",sep="\t")
+convert_mouse_to_human <- function(gene_list){
+  output = c()
+  for(gene in gene_list){
+    class_key = (mouse_human_genes %>% filter(Symbol == gene & Common.Organism.Name=="mouse, laboratory"))[['DB.Class.Key']]
+    if(!identical(class_key, integer(0)) ){
+      human_genes = (mouse_human_genes %>% filter(DB.Class.Key == class_key & Common.Organism.Name=="human"))[,"Symbol"]
+        output = append(output,human_genes[1])
+    }else{
+        output = append(output,toupper(gene))
+    }
+  }
+
+  return (output)
+}
+
+converted = convert_mouse_to_human(combined$external_gene_name)
+if(length(which(grepl(colnames(combined),pattern = "human_symbol")))==0){
+  combined = cbind(combined, human_symbol = converted)
+}
+
+#Count1 = tummour count2= normal
+library(edgeR)
+counts = cbind(combined$count1,combined$count2)
+combined_dge = DGEList(counts = counts, lib.size = colSums(counts), norm.factors = rep(1,ncol(counts)), samples = NULL, group = NULL, genes =combined$human_symbol, remove.zeros = TRUE) 
+combined_dge = combined_dge[filterByExpr(combined_dge),,keep.lib.sizes=FALSE]
+# CPM - logFC
+gene_fc = log1p(combined_dge[["counts"]][,2]*1e6/combined_dge[["samples"]][["lib.size"]][1]) - log1p(combined_dge[["counts"]][,1]*1e6/combined_dge[["samples"]][["lib.size"]][2])
+names(gene_fc) = paste0("gene_symbol:",combined_dge[["genes"]][["genes"]])
+# Ramp
+gene_pathwaydf <- RaMP:::getPathwayFromAnalyte(paste0("gene_symbol:",unique(combined_dge[["genes"]][["genes"]])), includeRaMPids = TRUE, 
+                                          NameOrIds = "ids", find_synonym = FALSE)
+gene_pathwaydf = cbind(gene_pathwaydf, pathway_source = paste0(gene_pathwaydf$pathwayName,"(",gene_pathwaydf$pathwaySource,")"))
+#
+gene_pathwaydb = lapply(unique(gene_pathwaydf$pathway_source), function(x){
+  temp =gene_pathwaydf[which(gene_pathwaydf$pathway_source == x),]$inputId
+  return(temp)
+})
+names(gene_pathwaydb) =  unique(gene_pathwaydf$pathway_source)
+#####Testing
+TEST2= gene_fc[unique(names(gene_fc))]
+rna_gsea = fgsea(pathways = gene_pathwaydb, 
+                  stats    =TEST2,
+                  minSize  = 0,
+                  maxSize  = 1000,
+                 eps = 0,
+                 nPermSimple = 5000)
+  rna_topPathwaysUp <- rna_gsea[ES > 0][head(order(pval,decreasing = F), n=10), pathway]
+  rna_topPathwaysDown <- rna_gsea[ES < 0][head(order(pval, decreasing = F), n=10), pathway]
+rna_topPathways <- c(rna_topPathwaysUp, rev(rna_topPathwaysDown))
+#######
+plotGseaTable(gene_pathwaydb[rna_topPathways], TEST2, rna_gsea, 
+              gseaParam=0.5)
+```
+
+
+```{r testing}
+
+gsea_results = list()
+################################################################################
+pathwaydf <- RaMP:::getPathwayFromAnalyte(paste0("HMDB:",unique(data$accession)), includeRaMPids = TRUE, 
+                                          NameOrIds = "ids", find_synonym = FALSE)
+pathwaydf = cbind(pathwaydf, pathway_source = paste0(pathwaydf$pathwayName,"(",pathwaydf$pathwaySource,")"))
+# Pathwaydb 
+pathwaydb = lapply(unique(pathwaydf$pathway_source), function(x){
+  temp = pathwaydf[which(pathwaydf$pathway_source == x),]$inputId
+  return(temp)
+})
+names(pathwaydb) = unique(pathwaydf$pathway_source)
+pathwaydb = pathwaydb[names(pathwaydb) %in% c("Metabolism(reactome)",
+                         "Biochemical pathways: part I(wiki)",
+                         "Disease(reactome)",
+                         "Transport of small molecules") == FALSE]
+for(i in 1:10){
+  temp= data[which(data$matrix_polarity == unique(matrix_polarity)[i]),]
+  query = temp$diff_mean
+  names(query) = paste0("hmdb:",temp$accession)
+  #
+  temp_df <- RaMP:::getPathwayFromAnalyte(names(query), includeRaMPids = TRUE, 
+                                          NameOrIds = "ids", find_synonym = FALSE)
+  #Get final query
+  query_final = query[which(names(query)%in%unique(temp_df$inputId))]
+  gsea_results[[i]] <- fgsea(pathways = pathwaydb, 
+                  stats    =query_final,
+                  minSize  = 0,
+                  maxSize  = 1000,
+                  nperm = 3000)
+  topPathwaysUp <- gsea_results[[i]][ES > 0][head(order(size,decreasing = T), n=10), pathway]
+  topPathwaysDown <- gsea_results[[i]][ES < 0][head(order(size, decreasing = T), n=10), pathway]
+topPathways <- c(topPathwaysUp, rev(topPathwaysDown))
+#######
+}
+
+plotGseaTable(pathwaydb[topPathways], query_final, gsea_results[[i]] , 
+              gseaParam=0.5)
+View(gsea_results[[7]])
+```
+
+```{r figure4A}
+metabolite_9AA_neg =  small_molecule_pathways[["Alanine, aspartate and glutamate metabolism"]]
+
+metabolite_CHCA2_pos = 
+data_9aa = data[which(data$matrix_polarity == unique(matrix_polarity)[1]),]
+data_CHCA = data[which(data$matrix_polarity == unique(matrix_polarity)[7]),]
+data_9aa[which(data_9aa$accession %in% sub("hmdb:","",gsea_results[[1]]$leadingEdge[58][[1]])),]$exp_mz
+
+data_CHCA[which(data_CHCA$accession =="HMDB0003339"),]$diff_mean
+data_CHCA[which(data_CHCA$accession %in% sub("hmdb:","",gsea_results[[7]]$leadingEdge[66][[1]])),]$exp_mz
+#
+Candidate_mz_9AA = data_9aa[which(data_9aa$accession %in% sub("hmdb:","",gsea_results[[1]]$leadingEdge[58][[1]])),]$exp_mz
+data_9aa[which(data_9aa$exp_mz == Candidate_mz_9AA[3]),]$diff_mean
+data_9aa[which(data_9aa$exp_mz == Candidate_mz_9AA[3]),]$accession
+
+
+Candidate_mz_CHCA = data_CHCA[which(data_CHCA$accession %in% sub("hmdb:","",gsea_results[[7]]$leadingEdge[66][[1]])),]$exp_mz
+data_CHCA[which(data_CHCA$exp_mz == Candidate_mz_CHCA[3]),]$diff_mean
+```
+
+
+```{r metabolites}
+rna = rna_gsea[which(#grepl(rna_gsea$pathway, pattern = "kegg")& 
+  as.numeric(rna_gsea$pval) <=0.05) ,]
+#
+####### save file
+saveRDS(gsea_results, file = paste0(root_directory,"/RNA/gsea_results.RDS"))
+gsea_results = readRDS(file = paste0(root_directory,"/RNA/gsea_results.RDS"))
+for(i in 1:10){
+  meta = gsea_results[[i]][which(#grepl(gsea_results[[i]]$pathway, pattern = "kegg") & 
+    as.numeric(gsea_results[[i]]$pval) <=0.3),]
+  overlap = rna[which(rna$pathway %in% meta$pathway),]
+  #######
+  filtered_rna_entire = rna %>% filter(pathway %in% overlap$pathway) %>% data.frame()
+  if(all(!grepl(colnames(filtered_rna_entire),pattern = "rna")) == T){
+    colnames(filtered_rna_entire) = paste(colnames(filtered_rna_entire),
+                                          "_rna", sep = "")
+    colnames(filtered_rna_entire)[1] ="pathway"
+  }
+  ####
+  filtered_meta = meta %>% filter(pathway %in% overlap$pathway) %>% dplyr::select(pathway, NES) 
+  filtered_rna = rna %>% filter(pathway %in% overlap$pathway) %>% dplyr::select(pathway, NES) 
+  #
+  filtered_meta_entire = meta %>% filter(pathway %in% overlap$pathway) 
+  if(all(!grepl(colnames(filtered_meta_entire),pattern = "metabolite")) == T){
+    colnames(filtered_meta_entire) = paste(colnames(filtered_meta_entire),
+                                           "_metabolites", sep = "")
+    colnames(filtered_meta_entire)[1] ="pathway"
+  }
+  merged_entire = merge(filtered_rna_entire, filtered_meta_entire, by = "pathway")
+  df= data.frame(lapply(merged_entire , as.character), stringsAsFactors=FALSE)
+  #
+  setwd(paste0(root_directory,"/RNA"))
+  write.csv(df,
+            paste0(unique(matrix_polarity)[i],"_overlapping_sea_pathways.csv"))
+  meta_f = data.frame(lapply(meta , as.character), stringsAsFactors=FALSE)
+  write.csv(meta_f,
+            file = paste0(unique(matrix_polarity)[i],"_msea_pathways.csv"))
+}
+
+
+
+merged = merge(filtered_meta, filtered_rna, by = "pathway")
+same_direction = merged[which(sign(merged$NES.x)==sign(merged$NES.y)),]
+RRHO_obj <-  RRHO2_initialize(filtered_meta, filtered_rna, labels = c("metabolites", "RNA"), log10.ind=F,stepsize = 3)
+
+RRHO2_heatmap(RRHO_obj)
+```
+
+
+```{r heatmap}
+srcwd = paste0(root_directory,"/RNA")
+setwd(srcwd)
+myfiles = list.files(pattern = "_msea_pathways.csv")
+myfiles
+##
+pathwaydf = data.frame()
+for(i in 1:length(myfiles)){
+  temp = gsea_results[[i]]
+  temp_f = cbind(temp,matrix = rep( unique(matrix_polarity)[i], times = nrow(temp)))
+  pathwaydf = rbind(pathwaydf,temp_f)
+}
+####
+pathways = unique(pathwaydf$pathway)
+comparason_matrix = matrix(0, ncol = 10,
+                           nrow = length(pathways))
+colnames(comparason_matrix) = unique(pathwaydf$matrix)
+rownames(comparason_matrix) = pathways 
+###
+for(i in pathways){
+  temp = pathwaydf[which(pathwaydf$pathway == i),]
+  temp_matrix = unique(temp$matrix)
+  comparason_matrix[i,which(colnames(comparason_matrix) %in% temp_matrix)] = 1
+}
+comparason_matrix = as.data.frame(comparason_matrix)%>% mutate(index = rowSums(.[1:10]))
+
+test = comparason_matrix[which(grepl(row.names(comparason_matrix),pattern = "kegg")),]
+View(test)
+```
+
+```{r heatmapplot}
+candidate_pathways =sub("[()].*","",rownames(test)) 
+####
+heatmap_matrix = matrix(NA, ncol = 10,
+                        nrow = length(candidate_pathways ))
+colnames(heatmap_matrix) = unique(pathwaydf$matrix)
+rownames(heatmap_matrix) = candidate_pathways 
+
+#
+heatmapdf = pathwaydf %>% mutate(pathway_short = sub("[()].*","",pathway))%>%
+  filter(pathway_short %in% candidate_pathways) %>%
+  filter(!duplicated(paste0(matrix,pathway_short)))%>% dplyr::select(pathway,
+                                                                     pval,
+                                                                     padj,
+                                                                     ES,
+                                                                     NES,
+                                                                     size,
+                                                                     matrix,
+                                                                     pathway_short)
+rna_kegg = rna_gsea %>% filter(grepl(pathway,pattern = "kegg"))%>% mutate(pathway_short = sub("[()].*","",pathway)) %>%
+  filter(pathway_short %in% candidate_pathways) %>% mutate(matrix = "Bulk RNAseq") %>% dplyr::select(pathway,
+                                                                                                     pval,
+                                                                                                     padj,
+                                                                                                     ES,
+                                                                                                     NES,
+                                                                                                     size,
+                                                                                                     matrix,
+                                                                                                     pathway_short)
+#############
+heatmapdf_final = rbind(heatmapdf,rna_kegg) %>% mutate(significance = ifelse(as.numeric(pval)<=0.05,"Significant at 5% sig level","Not significant"))
+for(i in heatmapdf_final$matrix){
+  for(j in candidate_pathways){
+    if(nrow(heatmapdf_final[which(heatmapdf_final$matrix == i & heatmapdf_final$pathway_short == j),])==0){
+      temp = data.frame(pathway =NA,
+                        pval =NA,
+                        padj =NA,
+                        ES =NA,
+                        NES =NA,
+                        size =NA,
+                        matrix = i,
+                        pathway_short = j,
+                        significance = NA)
+      heatmapdf_final = rbind(heatmapdf_final,
+                              temp)
+    }
+  }
+}
+#################
+
+kegg_identifier = read.csv("/stornext/Bioinf/data/lab_brain_cancer/manuscripts/2023_metabolomics/plots/human/Kegg_pathway_identifier/kegg_classifier.csv")
+heatmapdf_final = heatmapdf_final %>%
+  mutate( `kegg classifier` = unlist(lapply(pathway_short, function(x){
+    temp = kegg_identifier[which(grepl(pattern = x, kegg_identifier$id,ignore.case = T)),]$group
+    if(length(temp)!=0){
+      return(temp[1]) 
+    }else{
+      temp = "Deleted pathways from Kegg"
+    }
+  }
+  )))
+heatmapdf_final[which(heatmapdf_final$pathway_short == "Amino Sugar Metabolism"),]$`kegg classifier` = "1.1 Carbohydrate metabolism"
+heatmapdf_final[which(heatmapdf_final$pathway_short == "Butanoate metabolism"),]$`kegg classifier` = "1.1 Carbohydrate metabolism"
+heatmapdf_final[which(heatmapdf_final$pathway_short == "Citric Acid Cycle"),]$`kegg classifier` = "1.1 Carbohydrate metabolism"
+heatmapdf_final[which(heatmapdf_final$pathway_short == "Fatty acid Metabolism"),]$`kegg classifier` = "1.3 Lipid metabolism"
+heatmapdf_final[which(heatmapdf_final$pathway_short == "Ketone Body Metabolism"),]$`kegg classifier` = "1.3 Lipid metabolism"
+heatmapdf_final[which(heatmapdf_final$pathway_short == "Fatty Acid Elongation In Mitochondria"),]$`kegg classifier` = "1.3 Lipid metabolism"
+heatmapdf_final[which(heatmapdf_final$pathway_short == "Phenylalanine and Tyrosine Metabolism"),]$`kegg classifier` = "1.5 Amino acid metabolism"
+
+heatmapdf_final[which(heatmapdf_final$pathway_short == "Butyrate Metabolism"),]$`kegg classifier` = "1.1 Carbohydrate metabolism"
+
+heatmapdf_final[which(heatmapdf_final$pathway_short == "Phosphatidylinositol Phosphate Metabolism"),]$`kegg classifier` = "1.1 Carbohydrate metabolism"
+heatmapdf_final[which(heatmapdf_final$pathway_short == "D-Arginine and D-Ornithine Metabolism"),]$`kegg classifier` = "1.6 Metabolism of other amino acids"
+
+
+heatmapdf_final[which(heatmapdf_final$pathway_short == "Phospholipid Biosynthesis"),]$`kegg classifier` = "1.3 Lipid metabolism"
+heatmapdf_final[which(heatmapdf_final$pathway_short == "Pterine Biosynthesis"),]$`kegg classifier` = "1.8 Metabolism of cofactors and vitamins"
+heatmapdf_final[which(heatmapdf_final$pathway_short == "Ubiquinone Biosynthesis"),]$`kegg classifier` = "1.8 Metabolism of cofactors and vitamins"
+heatmapdf_final[which(heatmapdf_final$pathway_short == "Androgen and Estrogen Metabolism"),]$`kegg classifier` = "5.2 Endocrine system"
+
+# ####################### Setting colours
+cols <- c("Carbohydrate metabolism"= '#0f7321',
+          "Energy metabolism"='#f23a34',
+          "Lipid metabolism"='#008080',
+          "Nucleotide metabolism"='#0069b4',
+          "Amino acid metabolism"='#00ffff',
+          "Metabolism of other amino acids"='#ffa731',
+          "Metabolism of cofactors and vitamins"='#fa2b73',
+          "Biosynthesis of other secondary metabolites"= '#f072d4',
+          "Endocrine system" = "#0fd214"
+)
+heatmapdf_final = heatmapdf_final %>% mutate(group =sub(" ","",sub(".*[0-9]","",sub(".*.[1-9]","",heatmapdf_final$`kegg classifier`))))
+cols = unlist(cols)
+cols <- data.frame(color = unlist(cols),
+                   group = names(unlist(cols)))
+
+heatmapdf_final<- merge(heatmapdf_final, cols, by = "group", all.x = TRUE)
+heatmapdf_final$Pathways_colour <- paste0("<span style=\"color: ",heatmapdf_final$color, "\">",heatmapdf_final$pathway_short, "</span>")
+View(heatmapdf_final)
+# Get percentage of seame idrection
+RNA = heatmapdf_final[which(heatmapdf_final$matrix == "Bulk RNAseq"),]
+CHCA2 = heatmapdf_final[which(heatmapdf_final$matrix == "CHCA  (2step)+"),]
+AA9= heatmapdf_final[which(heatmapdf_final$matrix == "9AA-"),]
+merge_pathways = merge(RNA, AA9, by = "pathway")
+View(merge_pathways)
+nrow(merge_pathways[which(sign(merge_pathways$NES.x) == sign(merge_pathways$NES.y)),])
+#################
+library(ggplot2)
+library(ggnewscale)
+library(ggtext)
+temp = ggplot(heatmapdf_final, aes(x = factor(matrix, levels = c("Bulk RNAseq",
+                                                                 "9AA -",
+                                                                 "9AA (2step)-",
+                                                                 "9AA +",
+                                                                 "9AA (2step)+",
+                                                                 "CHCA -",
+                                                                 "CHCA  (2step)-",
+                                                                 "CHCA +",
+                                                                 "CHCA  (2step)+",
+                                                                 "DHB -",
+                                                                 "DHB +" )),  y = Pathways_colour, fill = NES))+
+  geom_tile()+
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red3", midpoint = 0,
+                       na.value = 'grey')+
+  #      geom_tile(data= heatmapdf_final,linewidth = 0.5,fill = NA, aes(colour = significance))+
+  # scale_colour_manual(values = c("Significant at 5% sig level" = "green",
+  #                                "Not significant" = "black"))+
+  labs(
+    title = "Set enrichment analysis on RNA and small molecule",
+    y = "Pathways", x = "Matrices molecule/polarity") + theme(title =element_text(size=10, face='bold'),
+                                                              axis.text.x = element_text(size = 12,
+                                                                                         angle =90,
+                                                                                         vjust = 0.5, hjust=1)) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+                                                                                                                        panel.background=element_blank(),
+                                                                                                                        axis.text.y = element_markdown(size = 9))+ new_scale_fill() +
+  geom_tile(aes(fill = group), colour = "white",
+            width= 0 ,
+            height = 0) + 
+  scale_fill_manual(values  = c("Carbohydrate metabolism"= '#0f7321',
+                                "Energy metabolism"='#f23a34',
+                                "Lipid metabolism"='#008080',
+                                "Nucleotide metabolism"='#0069b4',
+                                "Amino acid metabolism"='#00ffff',
+                                "Metabolism of other amino acids"='#ffa731',
+                                "Metabolism of cofactors and vitamins"='#fa2b73',
+                                "Biosynthesis of other secondary metabolites"= '#f072d4',
+                                "Endocrine system" = "#0fd214"),
+                    drop = F,
+                    name = 'the kegg classifier')
+
+
+ggsave(filename = "Figure4C.svg",
+       plot = temp,
+       width=10, height=14)
+```

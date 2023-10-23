@@ -1,0 +1,539 @@
+```{r env}
+.libPaths("/stornext/Bioinf/data/lab_brain_cancer/users/t_lu/R/x86_64-pc-linux-gnu-library/4.2")
+library(Cardinal)
+library(data.table)
+library(ggplot2)
+library(transport)
+library(gridExtra)
+library(spatstat)
+library(ggplot2)
+library(ggpmisc)
+library(patchwork)
+library(gridExtra)
+library(grid)
+library(ggimage)
+library(Matrix)
+library(dplyr)
+library(transport)
+# Set root directory
+root_directory = "/stornext/Home/data/allstaff/l/lu.t/paper_final"
+```
+
+```{r Figure4a}
+data = readRDS(paste0(root_directory,"/feature_files/small_molecule_annotated_list.RDS")) %>% arrange(desc(abs(diff_mean))) %>% mutate(matrix_polarity = paste0(matrix_short,polarity))
+matrix_polarity = paste0(data$matrix_short,data$polarity)
+#
+if(length(grep(colnames(data), pattern = "matrix_polarity")) == 0){
+  data = cbind(data, matrix_polarity)
+}
+#########
+w_d = c()
+cancer_list = list()
+health_list = list()
+for(i in 1:10){
+  submatrix = data[which(data$matrix_polarity == unique(matrix_polarity)[i]),]
+  # mz = submatrix$mz_hmdb
+  # mz_test = submatrix$mz_hmdb[!duplicated(mz)]
+  # mean_c = unlist(lapply(mz_test, function(x){
+  #   temp = exp(submatrix[which(submatrix$mz_hmdb== x),]$mean_c)-1
+  #   temp = temp[which.max(abs(temp))]
+  #   return(temp)
+  # }))
+  # mean_h = unlist(lapply(mz_test, function(x){
+  #   temp = exp(submatrix[which(submatrix$mz_hmdb== x),]$mean_h)-1
+  #   temp = temp[which.max(abs(temp))]
+  #   return(temp)
+  # }))
+  #
+  # pp_c = getmzdensity(peak = data.frame(cbind(mz = mz_test, mean = 1e5*log1p(mean_c))),n = 512, bandwidth = "ucv", adjust = 1/5)
+  #cancer_list[[i]] = pp_c
+  # pp_h = getmzdensity(peak = data.frame(cbind(mz = mz_test, mean = 1e5*log1p(mean_h))),n = 512, bandwidth = "ucv", adjust = 1/5)
+  # health_list[[i]] = pp_h
+  pp_c = pp(data.frame(cbind(x = submatrix$exp_mz, y = submatrix$mean_c)))
+  cancer_list[[i]] = pp_c
+  pp_h = pp(data.frame(cbind(x = submatrix$exp_mz, y = submatrix$mean_h)))
+  health_list[[i]] = pp_h
+  w_d[i]  = wasserstein(pp_c,pp_h,prob = F,p=2)
+}
+saveRDS(w_d,"Wasserstein_distance_normal_versus_tumour/sm_tumour_versus_normal_wd.RDS")
+# Greatest source of variance in plot
+
+# for(i in 1:10){
+#   optimal_transport = transport(cancer_list[[i]], health_list[[i]], p = 2)
+#   cancer_vector = cancer_list[[i]][["coordinates"]][optimal_transport$from,]
+#    health_vector = health_list[[i]][["coordinates"]][optimal_transport$to,]
+#    temp_df = data.frame(mz_c =  cancer_vector[,1],
+#                         mz_h =  health_vector[,1],
+#                         diff = abs(cancer_vector[,2] - health_vector[,2])) %>% arrange(desc(diff)) %>% filter(!duplicated(diff))
+# }
+
+w_d = readRDS("Wasserstein_distance_normal_versus_tumour/sm_tumour_versus_normal_wd.RDS")
+num_var = 100
+percentage_list = list()
+for(i in 1:10){
+  i = 1
+  cancer_y = cancer_list[[i]][["coordinates"]][,2]
+  health_y = health_list[[i]][["coordinates"]][,2]
+  mz = cancer_list[[i]][["coordinates"]][order(abs(cancer_y-health_y),decreasing = T),1]
+  cancer_int = cancer_list[[i]][["coordinates"]][order(abs(cancer_y-health_y),decreasing = T),2]
+  health_int = health_list[[i]][["coordinates"]][order(abs(cancer_y-health_y),decreasing = T),2]
+  
+  ####################
+  submatrix = data[which(data$matrix_polarity == unique(matrix_polarity)[i]),]
+  # Greatest source of variance - mz
+  matched_matrix = data.frame()
+  z = 1
+  for(j in 1:num_var){
+    mz_source = submatrix[which.min(abs(submatrix$exp_mz - mz[j])),]$exp_mz
+    if(all(mz_source %in% matched_matrix$exp_mz)){
+      next
+    }
+    hmdb = submatrix[which(submatrix$exp_mz == mz_source),]$accession
+    matched_ion = submatrix[which(submatrix$exp_mz == mz_source),]$adduct
+    matched_mz = submatrix[which(submatrix$exp_mz == mz_source),]$mz_hmdb
+    matched_name = paste0(submatrix[which(submatrix$exp_mz == mz_source),]$name,"[",
+                          submatrix[which(submatrix$exp_mz == mz_source),]$adduct,"]")
+    explained_distance = abs(cancer_int[j]-health_int[j])/sum(abs(cancer_int-health_int)) 
+    matched_matrix = rbind(matched_matrix,
+                           cbind(
+                             exp_mz = mz_source,
+                             name = matched_name,
+                             matched_mz = matched_mz,
+                             adduct = matched_ion,
+                             hmdb = hmdb,
+                             variance_source = paste0("NO.",z,"source of variance"),
+                             index = paste0(mz_source,matched_ion),
+                             percentage = explained_distance)
+    )
+    z = z+1
+  }
+  percentage_list[[i]] =  matched_matrix 
+}
+
+# prepare barplot
+k = 2
+percentage = data.frame(unique(cbind(exp_mz = data[which(data$matrix_polarity == unique(matrix_polarity)[k]),]$exp_mz,
+                                     explained_propotion = 100*(abs(data[which(data$matrix_polarity == unique(matrix_polarity)[k]),]$diff_mean)/sum(abs(unique(data[which(data$matrix_polarity == unique(matrix_polarity)[k]),]$diff_mean)))),
+                                     name = data[which(data$matrix_polarity == unique(matrix_polarity)[k]),]$name,
+                                     adduct = data[which(data$matrix_polarity == unique(matrix_polarity)[k]),]$adduct))) 
+#remove duplicated rows
+new_percentage = percentage[!duplicated(percentage$explained_propotion),] %>%
+  mutate(explained_propotion = as.numeric(explained_propotion)) %>% arrange(desc(explained_propotion))
+# set colour  
+col =   c("#581845",
+          "#900C3F",
+          "#C70039",
+          "#FF5733",
+          "#FFC300",
+          "yellow")
+bar_col = c(paste0(round(as.numeric(new_percentage$exp_mz), digits = 4)," ",new_percentage$name,"[",
+                   new_percentage$adduct,"]"))[c(1:6)]
+bar_col[4] = paste0(round(as.numeric(new_percentage$exp_mz[4]), digits = 4)," Acetylcarnitine","[",
+                    new_percentage$adduct[4],"]")
+bar_col = data.frame(x = paste0("m/z ",bar_col),
+                     col =col,
+                     y = as.numeric(new_percentage$explained_propotion[1:6]))
+
+#ggplot
+annotate_bar = ggplot(data = bar_col,
+                      aes(x = reorder(x, -y), y = y)) +
+  geom_bar(stat = "identity",
+           fill = col) +ggtitle("m/z peaks with greatest explanatory power to the distance")+
+  xlab("m/z") + ylab("Proportion of difference between normal and tumour region explained (%)")+ theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+#save
+setwd("/stornext/Bioinf/data/lab_brain_cancer/manuscripts/2023_metabolomics/plots/Figure4")
+ggsave(filename = "supFigure4(a).svg",
+       plot = annotate_bar ,
+       width=4, height = 7)
+####### plot Figure4B
+
+plotdf = data.frame(cbind(wd = w_d,
+                          mp = unique(matrix_polarity)))
+temp = ggplot(data =plotdf, aes(y = as.numeric(wd),
+                                x = factor(mp, level = c(
+                                  "CHCA +",
+                                  "CHCA -",
+                                  "CHCA  (2step)+",
+                                  "CHCA  (2step)-",
+                                  "DHB +",
+                                  "DHB -",
+                                  "9AA (2step)+",
+                                  "9AA (2step)-",
+                                  "9AA +",
+                                  "9AA -"))))+
+  geom_bar(stat="identity", aes(fill = mp))+
+  scale_fill_manual(name = "Matrix poalrity combination", 
+                    values=c('9AA -'="#007AB6",
+                             '9AA +'="#ABC7E6",
+                             '9AA (2step)-'= "#413975",
+                             '9AA (2step)+'="#9068AC",
+                             'DHB -' ="#F77800",
+                             'DHB +' ="#FDB772",
+                             'CHCA  (2step)-'="#2FA143",
+                             'CHCA  (2step)+'="#5AC096",
+                             'CHCA -'="#916729",
+                             'CHCA +'="#C3A128"
+                    ))+annotate(geom = "rect", 
+                                ymin = 0, ymax = 25.6, xmin = 2.5, xmax = 3.5,
+                                linetype = "dotted", fill = NA, colour = "red") + theme(panel.background = element_rect(fill = "white"),
+                                                                                        panel.grid = element_line(color = "grey"))+
+  coord_flip()+
+  annotate("plot", x = 9, y = 23, label = annotate_bar+theme(axis.text.x = element_text(angle = 60, vjust = 1, hjust=1),
+                                                             text = element_text(size = 8))+theme(axis.text = element_text(size = 6),
+                                                                                                  plot.background = element_rect(fill='transparent', color=NA),
+                                                                                                  panel.background = element_rect(fill='transparent'),panel.grid.major = element_blank(), panel.grid.minor = element_blank())) +
+  geom_segment(x =3.5, 
+               xend = 5,
+               y = 19.1,
+               yend =19.1,
+               color = "red",linetype = "dotted",
+               arrow = arrow( length = unit(0.03, "npc"), ends="last", type = "closed"))+
+  ylab("wasserstein distance between mean intensity of m/z peaks detected in tumour versus normal") + xlab("Matrix poalrity combination")+ theme_bw() +theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+###################
+ggsave(filename = "Figure4a.svg",
+       plot = temp,
+       width=12, height=7)
+```
+
+
+```{r figure4blipids}
+data = readRDS(paste0(root_directory,"/feature_files/lipids_annotated_list.RDS"))
+#
+matrix_polarity = paste0(data$matrix, data$polarity)
+if(length(grep(colnames(data), pattern = "matrix_polarity")) == 0){
+  data = cbind(data, matrix_polarity)
+}
+#####
+lipid_w_d = c()
+lipid_cancer_list = list()
+lipid_health_list = list()
+for(i in 1:4){
+  submatrix = data[which(data$matrix_polarity == unique(matrix_polarity)[i]),]
+  mz = submatrix$mz_hmdb
+  mz_test = submatrix$mz_hmdb[!duplicated(mz)]
+  mean_c = unlist(lapply(mz_test, function(x){
+    temp = exp(submatrix[which(submatrix$mz_hmdb== x),]$mean_c)-1
+    temp = temp[which.max(abs(temp))]
+    return(temp)
+  }))
+  mean_h = unlist(lapply(mz_test, function(x){
+    temp = exp(submatrix[which(submatrix$mz_hmdb== x),]$mean_h)-1
+    temp = temp[which.max(abs(temp))]
+    return(temp)
+  }))
+  #
+  # pp_c = getmzdensity(peak = data.frame(cbind(mz = mz_test, mean = 1e5*log1p(mean_c))),n = 512, bandwidth = "ucv", adjust = 1/5)
+  #cancer_list[[i]] = pp_c
+  # pp_h = getmzdensity(peak = data.frame(cbind(mz = mz_test, mean = 1e5*log1p(mean_h))),n = 512, bandwidth = "ucv", adjust = 1/5)
+  # health_list[[i]] = pp_h
+  pp_c = pp(data.frame(cbind(x = mz_test, y = log1p(as.numeric(mean_c)))))
+  lipid_cancer_list[[i]] = pp_c
+  pp_h = pp(data.frame(cbind(x = mz_test, y = log1p(as.numeric(mean_h)))))
+  lipid_health_list[[i]] = pp_h
+  lipid_w_d[i]  = wasserstein(pp_c,
+                              pp_h,
+                              p=2,
+                              prob = F)
+}           
+# Greatest source of variance in plot
+num_var = 100
+lipid_percentage_list = list()
+for(i in 1:4){
+  cancer_y = lipid_cancer_list[[i]][["coordinates"]][,2]
+  health_y = lipid_health_list[[i]][["coordinates"]][,2]
+  mz = lipid_cancer_list[[i]][["coordinates"]][order(abs(cancer_y-health_y),decreasing = T),1]
+  cancer_int = lipid_cancer_list[[i]][["coordinates"]][order(abs(cancer_y-health_y),decreasing = T),2]
+  health_int = lipid_health_list[[i]][["coordinates"]][order(abs(cancer_y-health_y),decreasing = T),2]
+  difference_list = cbind()
+  ####################
+  submatrix = data[which(data$matrix_polarity == unique(matrix_polarity)[i]),]
+  # Greatest source of variance - mz
+  matched_matrix = data.frame()
+  z = 1
+  for(j in 1:num_var){
+    mz_source = submatrix[which.min(abs(submatrix$exp_mz - mz[j])),]$exp_mz
+    if(all(mz_source %in% matched_matrix$exp_mz)){
+      next
+    }
+    hmdb = submatrix[which(submatrix$exp_mz == mz_source),]$accession
+    matched_ion = submatrix[which(submatrix$exp_mz == mz_source),]$adduct
+    matched_mz = submatrix[which(submatrix$exp_mz == mz_source),]$mz_hmdb
+    matched_name = paste0(submatrix[which(submatrix$exp_mz == mz_source),]$name,"[",
+                          submatrix[which(submatrix$exp_mz == mz_source),]$adduct,"]")
+    explained_distance = abs(cancer_int[j]-health_int[j])/sum(abs(cancer_int-health_int)) 
+    matched_matrix = rbind(matched_matrix,
+                           cbind(
+                             exp_mz = mz_source,
+                             name = matched_name,
+                             matched_mz = matched_mz,
+                             adduct = matched_ion,
+                             hmdb = hmdb,
+                             variance_source = paste0("NO.",z,"source of variance"),
+                             index = paste0(mz_source,matched_ion),
+                             percentage = explained_distance)
+    )
+    z = z+1
+  }
+  lipid_percentage_list[[i]] =  matched_matrix 
+}
+# Annotate plot
+# prepare barplot
+k = 4
+percentage = data.frame(unique(cbind(exp_mz = data[which(data$matrix_polarity == unique(matrix_polarity)[k]),]$exp_mz,
+                                     explained_propotion = 100*(abs(data[which(data$matrix_polarity == unique(matrix_polarity)[k]),]$diff_mean)/sum(abs(unique(data[which(data$matrix_polarity == unique(matrix_polarity)[k]),]$diff_mean)))),
+                                     name = data[which(data$matrix_polarity == unique(matrix_polarity)[k]),]$name,
+                                     adduct = data[which(data$matrix_polarity == unique(matrix_polarity)[k]),]$adduct))) 
+#remove duplicated rows
+new_percentage = percentage[!duplicated(percentage$explained_propotion),] %>%
+  mutate(explained_propotion = as.numeric(explained_propotion)) %>% arrange(desc(explained_propotion))
+# set colour  
+col =   c("#581845",
+          "#900C3F",
+          "#C70039",
+          "#FF5733",
+          "#FFC300",
+          "yellow")
+bar_col = c(paste0(round(as.numeric(new_percentage$exp_mz), digits = 4)," ",new_percentage$name,"[",
+                   new_percentage$adduct,"]"))[c(1:6)]
+bar_col[4] = paste0(round(as.numeric(new_percentage$exp_mz[4]), digits = 4)," Acetylcarnitine","[",
+                    new_percentage$adduct[4],"]")
+bar_col = data.frame(x = paste0("m/z ",bar_col),
+                     col =col,
+                     y = as.numeric(new_percentage$explained_propotion[1:6]))
+#
+bar_col$x[1] = "m/z 651.5377 DG O-40:8 [+H+]"  
+bar_col$x[2] = "m/z 844.5296 PC 38:6 [+K+]"  
+bar_col$x[3] = "m/z 830.5139 PE 40:6 [+K+]"
+bar_col$x[4] = "m/z 772.5285 PE O-40:9 [+H+]"  
+bar_col$x[5] = "m/z 799.5478 PG 38:4 [+H+]"  
+bar_col$x[6] = "m/z 760.5885 PC 34:1 [+H+]"  
+
+#ggplot
+annotate_bar = ggplot(data = bar_col,
+                      aes(x = reorder(x, -y), y = y)) +
+  geom_bar(stat = "identity",
+           fill = col) +ggtitle("m/z peaks with greatest explanatory power to the distance")+
+  xlab("m/z") + ylab("Proportion of difference between normal and tumour region explained (%)")+ theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+#save
+library(svglite)
+setwd("/stornext/Bioinf/data/lab_brain_cancer/manuscripts/2023_metabolomics/plots/Figure4")
+ggsave(filename = "supFigure4(c)_lipids.svg",
+       plot = annotate_bar ,
+       width=4, height = 6)
+###########
+lipid_plotdf = data.frame(cbind(wd =lipid_w_d,
+                                mp = unique(matrix_polarity)))
+temp_lipid = ggplot(data =lipid_plotdf, aes(y = as.numeric(wd),
+                                            x = factor(mp, level = c(
+                                              "9AA-",
+                                              "9AA+",
+                                              "CHCA(2step)-",
+                                              "CHCA(2step)+"
+                                            ))))+
+  geom_bar(stat="identity", aes(fill = mp))+
+  scale_fill_manual(name = "Matrix poalrity combination", 
+                    values=c('9AA-'="#007AB6",
+                             '9AA+'="#ABC7E6",
+                             'CHCA(2step)-'="#2FA143",
+                             'CHCA(2step)+'="#5AC096"
+                    ))+annotate(geom = "rect", 
+                                ymin = 0, ymax = max(lipid_w_d)+0.2, xmin = k-0.5, xmax = k+0.5,
+                                linetype = "dotted", fill = NA, colour = "red") + theme(panel.background = element_rect(fill = "white"),
+                                                                                        panel.grid = element_line(color = "grey"))+
+  coord_flip()+
+  annotate("plot", x = k-1, y = max(lipid_w_d)+15, label = annotate_bar+theme(axis.text.x = element_text(angle = 60, vjust = 1, hjust=1),
+                                                                              text = element_text(size = 8))+theme(axis.text = element_text(size = 6),
+                                                                                                                   plot.background = element_rect(fill='transparent', color=NA),
+                                                                                                                   panel.background = element_rect(fill='transparent'),panel.grid.major = element_blank(), panel.grid.minor = element_blank())) +
+  geom_segment(x =4, 
+               xend = 4,
+               y = max(lipid_w_d)+0.2,
+               yend =max(lipid_w_d)+4.2,
+               color = "red",linetype = "dotted")+
+  geom_segment(x =4, 
+               xend = 3,
+               y = max(lipid_w_d)+4.2,
+               yend =max(lipid_w_d)+4.2,
+               color = "red",linetype = "dotted",
+               arrow = arrow( length = unit(0.03, "npc"), ends="last", type = "closed"))+
+  ylab("wasserstein distance between mean intensity of m/z peaks detected in tumour versus normal") + xlab("Matrix poalrity combination")+ theme_bw() +theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +ylim(0,50)
+
+###################
+gsave(filename = "Figure4b.svg",
+      plot = temp_lipid,
+      width=12, height=7)
+```
+
+```{r Figure4b}
+data = readRDS(paste0(root_directory,"/feature_files/lipids_annotated_list.RDS"))
+#
+matrix_polarity = paste0(data$matrix, data$polarity)
+if(length(grep(colnames(data), pattern = "matrix_polarity")) == 0){
+  data = cbind(data, matrix_polarity)
+}
+#####
+lipid_w_d = c()
+lipid_cancer_list = list()
+lipid_health_list = list()
+ for(i in 1:4){
+   submatrix = data[which(data$matrix_polarity == unique(matrix_polarity)[i]),]
+   mz = submatrix$mz_hmdb
+   mz_test = submatrix$mz_hmdb[!duplicated(mz)]
+   mean_c = unlist(lapply(mz_test, function(x){
+     temp = exp(submatrix[which(submatrix$mz_hmdb== x),]$mean_c)-1
+     temp = temp[which.max(abs(temp))]
+     return(temp)
+   }))
+   mean_h = unlist(lapply(mz_test, function(x){
+     temp = exp(submatrix[which(submatrix$mz_hmdb== x),]$mean_h)-1
+     temp = temp[which.max(abs(temp))]
+     return(temp)
+   }))
+   #
+   # pp_c = getmzdensity(peak = data.frame(cbind(mz = mz_test, mean = 1e5*log1p(mean_c))),n = 512, bandwidth = "ucv", adjust = 1/5)
+   #cancer_list[[i]] = pp_c
+  # pp_h = getmzdensity(peak = data.frame(cbind(mz = mz_test, mean = 1e5*log1p(mean_h))),n = 512, bandwidth = "ucv", adjust = 1/5)
+  # health_list[[i]] = pp_h
+   pp_c = pp(data.frame(cbind(x = mz_test, y = log1p(as.numeric(mean_c)))))
+   lipid_cancer_list[[i]] = pp_c
+   pp_h = pp(data.frame(cbind(x = mz_test, y = log1p(as.numeric(mean_h)))))
+   lipid_health_list[[i]] = pp_h
+  lipid_w_d[i]  = wasserstein(pp_c,
+                              pp_h,
+                              p=2,
+                              prob = F)
+}           
+# Greatest source of variance in plot
+num_var = 100
+lipid_percentage_list = list()
+for(i in 1:4){
+  cancer_y = lipid_cancer_list[[i]][["coordinates"]][,2]
+  health_y = lipid_health_list[[i]][["coordinates"]][,2]
+  mz = lipid_cancer_list[[i]][["coordinates"]][order(abs(cancer_y-health_y),decreasing = T),1]
+  cancer_int = lipid_cancer_list[[i]][["coordinates"]][order(abs(cancer_y-health_y),decreasing = T),2]
+  health_int = lipid_health_list[[i]][["coordinates"]][order(abs(cancer_y-health_y),decreasing = T),2]
+  difference_list = cbind()
+  ####################
+  submatrix = data[which(data$matrix_polarity == unique(matrix_polarity)[i]),]
+  # Greatest source of variance - mz
+  matched_matrix = data.frame()
+  z = 1
+  for(j in 1:num_var){
+    mz_source = submatrix[which.min(abs(submatrix$exp_mz - mz[j])),]$exp_mz
+    if(all(mz_source %in% matched_matrix$exp_mz)){
+      next
+    }
+    hmdb = submatrix[which(submatrix$exp_mz == mz_source),]$accession
+    matched_ion = submatrix[which(submatrix$exp_mz == mz_source),]$adduct
+    matched_mz = submatrix[which(submatrix$exp_mz == mz_source),]$mz_hmdb
+    matched_name = paste0(submatrix[which(submatrix$exp_mz == mz_source),]$name,"[",
+                          submatrix[which(submatrix$exp_mz == mz_source),]$adduct,"]")
+    explained_distance = abs(cancer_int[j]-health_int[j])/sum(abs(cancer_int-health_int)) 
+    matched_matrix = rbind(matched_matrix,
+                           cbind(
+                             exp_mz = mz_source,
+                             name = matched_name,
+                             matched_mz = matched_mz,
+                             adduct = matched_ion,
+                             hmdb = hmdb,
+                             variance_source = paste0("NO.",z,"source of variance"),
+                             index = paste0(mz_source,matched_ion),
+                             percentage = explained_distance)
+    )
+    z = z+1
+  }
+  lipid_percentage_list[[i]] =  matched_matrix 
+}
+# Annotate plot
+# prepare barplot
+k = 4
+percentage = data.frame(unique(cbind(exp_mz = data[which(data$matrix_polarity == unique(matrix_polarity)[k]),]$exp_mz,
+                   explained_propotion = 100*(abs(data[which(data$matrix_polarity == unique(matrix_polarity)[k]),]$diff_mean)/sum(abs(unique(data[which(data$matrix_polarity == unique(matrix_polarity)[k]),]$diff_mean)))),
+                   name = data[which(data$matrix_polarity == unique(matrix_polarity)[k]),]$name,
+                   adduct = data[which(data$matrix_polarity == unique(matrix_polarity)[k]),]$adduct))) 
+#remove duplicated rows
+new_percentage = percentage[!duplicated(percentage$explained_propotion),] %>%
+  mutate(explained_propotion = as.numeric(explained_propotion)) %>% arrange(desc(explained_propotion))
+# set colour  
+col =   c("#581845",
+             "#900C3F",
+             "#C70039",
+            "#FF5733",
+            "#FFC300",
+          "yellow")
+bar_col = c(paste0(round(as.numeric(new_percentage$exp_mz), digits = 4)," ",new_percentage$name,"[",
+                   new_percentage$adduct,"]"))[c(1:6)]
+bar_col[4] = paste0(round(as.numeric(new_percentage$exp_mz[4]), digits = 4)," Acetylcarnitine","[",
+                   new_percentage$adduct[4],"]")
+bar_col = data.frame(x = paste0("m/z ",bar_col),
+                     col =col,
+                     y = as.numeric(new_percentage$explained_propotion[1:6]))
+#
+bar_col$x[1] = "m/z 651.5377 DG O-40:8 [+H+]"  
+bar_col$x[2] = "m/z 844.5296 PC 38:6 [+K+]"  
+bar_col$x[3] = "m/z 830.5139 PE 40:6 [+K+]"
+bar_col$x[4] = "m/z 772.5285 PE O-40:9 [+H+]"  
+bar_col$x[5] = "m/z 799.5478 PG 38:4 [+H+]"  
+bar_col$x[6] = "m/z 760.5885 PC 34:1 [+H+]"  
+
+#ggplot
+annotate_bar = ggplot(data = bar_col,
+                      aes(x = reorder(x, -y), y = y)) +
+  geom_bar(stat = "identity",
+           fill = col) +ggtitle("m/z peaks with greatest explanatory power to the distance")+
+  xlab("m/z") + ylab("Proportion of difference between normal and tumour region explained (%)")+ theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+#save
+library(svglite)
+
+ggsave(filename = "supFigure4(c)_lipids.svg",
+       plot = annotate_bar ,
+       width=4, height = 6)
+###########
+lipid_plotdf = data.frame(cbind(wd =lipid_w_d,
+               mp = unique(matrix_polarity)))
+temp_lipid = ggplot(data =lipid_plotdf, aes(y = as.numeric(wd),
+                         x = factor(mp, level = c(
+                                                "9AA-",
+                                                  "9AA+",
+                                                "CHCA(2step)-",
+                                                  "CHCA(2step)+"
+                                                  ))))+
+  geom_bar(stat="identity", aes(fill = mp))+
+  scale_fill_manual(name = "Matrix poalrity combination", 
+                      values=c('9AA-'="#007AB6",
+                             '9AA+'="#ABC7E6",
+                             'CHCA(2step)-'="#2FA143",
+                             'CHCA(2step)+'="#5AC096"
+  ))+annotate(geom = "rect", 
+             ymin = 0, ymax = max(lipid_w_d)+0.2, xmin = k-0.5, xmax = k+0.5,
+             linetype = "dotted", fill = NA, colour = "red") + theme(panel.background = element_rect(fill = "white"),
+            panel.grid = element_line(color = "grey"))+
+coord_flip()+
+  annotate("plot", x = k-1, y = max(lipid_w_d)+15, label = annotate_bar+theme(axis.text.x = element_text(angle = 60, vjust = 1, hjust=1),
+                                                            text = element_text(size = 8))+theme(axis.text = element_text(size = 6),
+                                                                                                 plot.background = element_rect(fill='transparent', color=NA),
+                                                                                                 panel.background = element_rect(fill='transparent'),panel.grid.major = element_blank(), panel.grid.minor = element_blank())) +
+  geom_segment(x =4, 
+               xend = 4,
+               y = max(lipid_w_d)+0.2,
+               yend =max(lipid_w_d)+4.2,
+               color = "red",linetype = "dotted")+
+  geom_segment(x =4, 
+               xend = 3,
+               y = max(lipid_w_d)+4.2,
+               yend =max(lipid_w_d)+4.2,
+               color = "red",linetype = "dotted",
+               arrow = arrow( length = unit(0.03, "npc"), ends="last", type = "closed"))+
+  ylab("wasserstein distance between mean intensity of m/z peaks detected in tumour versus normal") + xlab("Matrix poalrity combination")+ theme_bw() +theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +ylim(0,50)
+
+###################
+
+gsave(filename = "Figure4(c).svg",
+       plot = temp_lipid,
+       width=12, height=7)
+```

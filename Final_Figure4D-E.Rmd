@@ -1,0 +1,226 @@
+
+```{r env}
+library(Thermimage)
+library(plot3D)
+library(Cardinal)
+library(plotly)
+library(dplyr)
+library(MASS)
+library(magick)
+library(bmp)
+root_directory = "/vast/scratch/users/lu.t"
+folder = paste0(root_directory,"/imzml_files_mouse")
+```
+
+```{r readimzmlfiles}
+############
+# CHCA file#
+############
+data<-readImzML(name=paste0("CHCA2+_165_180"),
+                                           folder=folder,
+                                           parse.only=FALSE)
+resolution = Cardinal::resolution(data)
+df = summarizeFeatures(data,
+                       FUN=c("mean","max"),
+                       as="DataFrame")
+summary_df_mean =data.frame(mean = df@listData[["mean"]],
+                            max = df@listData[["max"]],
+                            mz = df@mz) %>% arrange(desc(mean))
+summary_df_max =data.frame(mean = df@listData[["mean"]],
+                           max = df@listData[["max"]],
+                           mz = df@mz) %>% arrange(desc(max))
+
+###########
+# 9AA file#
+###########
+data2<-readImzML(name=paste0("9AA+_165_180"),
+                 folder=folder,
+                 parse.only=FALSE)
+resolution2 = Cardinal::resolution(data2)
+df2 = summarizeFeatures(data2,
+                       FUN=c("mean","max"),
+                       as="DataFrame")
+summary_df_mean2 =data.frame(mean = df2@listData[["mean"]],
+                            max = df2@listData[["max"]],
+                            mz = df2@mz) %>% arrange(desc(mean))
+summary_df_max2 =data.frame(mean = df2@listData[["mean"]],
+                           max = df2@listData[["max"]],
+                           mz = df2@mz) %>% arrange(desc(max))
+```
+
+```{r image_production_function}
+# cardinaliamge = cardinal::image() object
+# savepath = output path of results
+# tissueBMPpath = the BMP imaging file of the tissue
+# Height = Height, Width = width
+# Alpha = transparence of the ion image
+# ... other parameters goes into image
+get_ion_tissue_image_overlay = function(cardinaldata = cardinaldata, savepath = savepath, tissueBMPpath = tissueBMPpath,
+                                        name=name, width = width, height= height,alpha=alpha,mz=mz,...){
+  temp = image(cardinaldata,mz =mz)
+  tiff(paste0(savepath,"/",name,".tiff"), width=width, height=height,units = "px",  compression = 'lzw')
+  par(mar=rep(0, 4), xpd = NA)
+  image(log1p(mirror.matrix((temp[["facets"]][[1]][[1]][["values"]]))),asp=height/width,...)
+  dev.off()
+  #############
+  require(bmp)
+  image =  read_bmp(tissueBMPpath) 
+  image = resize(image,w = width,h=height)/255
+  #add transparence
+  image = abind::abind(image, image[,,1])
+  
+  ######## read tiff ion image
+  require(tiff)
+  ion_image= readTIFF(paste0(savepath,"/",name,".tiff"))
+  #add transparence
+  ion_image = abind::abind(ion_image, ion_image[,,1])
+  
+  ## Set transparence
+  image[,,4] = 1  # set alpha to semi-transparent
+  for(i in 1:height){
+    for(j in 1:width){
+      if(ion_image[i,j,1] == 0 &ion_image[i,j,2] == 0 &ion_image[i,j,3] == 0){
+        ion_image[i,j,4] = 0
+      }else{
+        ion_image[i,j,4] = alpha
+      }
+    }
+  }
+  png(paste0(savepath,"/",name,".png"), width = width, height = height, units = 'px')
+  par(mai=c(0,0,0,0))
+  plot.new()
+  rasterImage(image, -0.04,-0.04,1.04,1.04,interpolate=FALSE)
+  rasterImage(ion_image, -0.04,-0.04,1.04,1.04,interpolate=FALSE)
+  dev.off()  
+}
+```
+
+```{r figuredCHCA}
+###########
+###CHCA2###
+###########
+read_bmp = readRDS(paste0(folder,"/read_bmp.RDS"))
+col = colorRampPalette(c("red","red2","red3","red4","orange","orange2","orange3","green1","green2","green3","blue1","blue2","blue3","lightskyblue","lightblue",rgb(0, 0, 0, alpha=0)),bias = 1)
+
+get_ion_tissue_image_overlay(savepath =folder,
+                             tissueBMPpath = paste0(folder,"/CHCA2.bmp"),
+                             name=paste0("CHCA2_argine_screening_mz",175.1187),
+                             cardinaldata = data,
+                             mz = 175.1187,
+                             alpha = 1, breaks = seq(0, 10,length.out = 31),
+                             height = data@metadata[["max count of pixels y"]],
+                             width = data@metadata[["max count of pixels x"]],
+                             col=rev(col(30)),bty ="n",axes=F,frame.plot=F,
+                             xaxt='n', ann=FALSE, yaxt='n',useRaster = T)
+
+# lineplot
+tumour_section = magick::image_read(paste0(folder,"/CHCA2_argine_screening_mz175.1187.png"))
+img = image_draw(tumour_section)
+rect(60, 400, 100, 500, border = "green", lwd = 1)#Brain
+rect(100, 400, 120, 500, border = "yellow", lwd = 1)#TAT
+rect(120, 400, 340, 500, border = "red", lwd = 1)#Tumour
+rect(340, 400, 390, 500, border = "yellow", lwd = 1)#TAT
+rect(390, 400, 460, 500, border = "green", lwd = 1)#Brain
+
+temp = image(data,mz = 	175.1187)
+
+temp_matrix = mirror.matrix((temp[["facets"]][[1]][[1]][["values"]]))
+plotcoordinates_chca = data.frame(average.intensity = unlist(lapply(seq(61,460,length.out =400), function(x){
+  return(sum(temp_matrix[x,401:500])/100)
+}))) %>% mutate(identity = c(rep("Brain",times=40),
+                             rep("Tumour adjacent tissue", times =20),
+                             rep("Tumour", times = 220),
+                             rep("Tumour adjacent tissue", times = 50),
+                             rep("Tumour adjacent tissue", times = 70))) %>% mutate(index = seq(1,400,length.out=400)) %>% 
+  mutate(col = c(rep("green",times=40),
+                 rep("yellow", times = 20),
+                 rep("red", times = 220),
+                 rep("yellow", times = 50),
+                 rep("green", times = 70)))
+library(ggplot2)
+ggplot(plotcoordinates_chca, aes(x=index , y=average.intensity)) + 
+  geom_line(aes(colour=col, group=1)) + 
+  scale_colour_identity()+ geom_smooth(method = "loess")+ theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+                                                                panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
+  
+```
+
+```{r figure4d9aa}
+#########
+###9AA###
+#########
+get_ion_tissue_image_overlay(savepath =folder,
+                             tissueBMPpath = paste0(folder,"/9AA.bmp"),
+                             name=paste0("9AA_argine_screening_mz",175.1187-2*1.00727627),
+                             cardinaldata = data2,
+                             mz = 175.1187-2*1.00727627,
+                             alpha = 1, breaks = seq(0, 10,length.out = 31),
+                             height = data2@metadata[["max count of pixels y"]],
+                             width = data2@metadata[["max count of pixels x"]],
+                             col=rev(col(30)),bty ="n",axes=F,frame.plot=F,
+                             xaxt='n', ann=FALSE, yaxt='n',useRaster = T)
+
+tumour_section = magick::image_read(paste0(folder,"9AA_argine_screening_mz173.10414746.png"))
+img = image_draw(tumour_section)
+rect(60, 400, 120, 500, border = "green", lwd = 1)#Brain
+rect(120, 400, 160, 500, border = "yellow", lwd = 1)#TAT
+rect(160, 400, 340, 500, border = "red", lwd = 1)#Tumour
+rect(340, 400, 390, 500, border = "yellow", lwd = 1)#TAT
+rect(390, 400, 460, 500, border = "green", lwd = 1)#Brain
+temp2 = image(data2,mz = 	175.1187-2*1.00727627)
+  temp_matrix = mirror.matrix((temp2[["facets"]][[1]][[1]][["values"]]))
+  plotcoordinates = data.frame(average.intensity = unlist(lapply(seq(61,460,length.out =400), function(x){
+    return(sum(temp_matrix[x,401:500])/100)
+  }))) %>% mutate(identity = c(rep("Brain",times=60),
+                               rep("Tumour adjacent tissue", times = 40),
+                               rep("Tumour", times = 180),
+                               rep("Tumour adjacent tissue", times = 50),
+                               rep("Tumour adjacent tissue", times = 70))) %>% mutate(index = seq(1,400,length.out=400)) %>% 
+  mutate(col = c(rep("green",times=60),
+                          rep("yellow", times = 40),
+                          rep("red", times = 180),
+                          rep("yellow", times = 50),
+                          rep("green", times = 70)))
+  library(ggplot2)
+  ggplot(plotcoordinates, aes(x=index , y=average.intensity)) + 
+    geom_line(aes(colour=col, group=1)) + 
+    scale_colour_identity()+ geom_smooth(method = "loess")+ theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+                                                                  panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
+```
+
+```{r figure4e}
+###########
+###CHCA2###
+###########
+temp = image(data,mz = 	175.1187)
+ion_image = mirror.matrix((temp[["facets"]][[1]][[1]][["values"]]))
+coordinate = data.frame()
+for(i in 1:nrow(ion_image)){
+  for(j in 1:ncol(ion_image)){
+    if(ion_image[i,j]!=0){
+      temp = c(i,j)
+      coordinate = rbind(coordinate,temp)
+    }
+  }
+}
+kd <- with(coordinate, MASS::kde2d(x =coordinate[,1] , y = coordinate[,2], n = 512))
+fig <- plot_ly(x = kd$x, y = rev(kd$y), z = kd$z) %>% add_surface()
+fig
+#########
+###9AA###
+#########
+temp2 = image(data2,mz = 	175.1187-2*1.00727627)
+ion_image = mirror.matrix((temp2[["facets"]][[1]][[1]][["values"]]))
+coordinate = data.frame()
+for(i in 1:nrow(ion_image)){
+  for(j in 1:ncol(ion_image)){
+    if(ion_image[i,j]!=0){
+      temp = c(i,j)
+      coordinate = rbind(coordinate,temp)
+    }
+  }
+}
+kd <- with(coordinate, MASS::kde2d(x =coordinate[,1] , y = coordinate[,2], n = 512))
+fig <- plot_ly(x = kd$x, y = rev(kd$y), z = kd$z) %>% add_surface()
+fig
+```
