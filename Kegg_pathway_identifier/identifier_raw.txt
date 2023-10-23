@@ -1,0 +1,120 @@
+1.0 Global and overview maps
+01100 MMetabolic pathways01110 MBiosynthesis of secondary metabolites01120 MMicrobial metabolism in diverse environments01200 M RCarbon metabolism01210 M R2-Oxocarboxylic acid metabolism01212 M RFatty acid metabolism01230 M RBiosynthesis of amino acids01232 MNucleotide metabolism01250 M RBiosynthesis of nucleotide sugars01240 M RBiosynthesis of cofactors01220 M RDegradation of aromatic compounds
+1.1 Carbohydrate metabolism
+00010 M NGlycolysis / Gluconeogenesis00020 M NCitrate cycle (TCA cycle)00030 MPentose phosphate pathway00040 MPentose and glucuronate interconversions00051 MFructose and mannose metabolism00052 M NGalactose metabolism00053 MAscorbate and aldarate metabolism00500 M NStarch and sucrose metabolism00520 M NAmino sugar and nucleotide sugar metabolism00620 M NPyruvate metabolism00630 MGlyoxylate and dicarboxylate metabolism00640 MPropanoate metabolism00650 MButanoate metabolism00660 MC5-Branched dibasic acid metabolism00562 MInositol phosphate metabolism
+1.2 Energy metabolism
+00190 MOxidative phosphorylation00195 MPhotosynthesis00196Photosynthesis - antenna proteins00710 MCarbon fixation in photosynthetic organisms00720 MCarbon fixation pathways in prokaryotes00680 MMethane metabolism00910 MNitrogen metabolism00920 MSulfur metabolism
+1.3 Lipid metabolism
+00061 MFatty acid biosynthesis00062 MFatty acid elongation00071 M NFatty acid degradation00073Cutin, suberine and wax biosynthesis00100 M NSteroid biosynthesis00120 M NPrimary bile acid biosynthesis00121Secondary bile acid biosynthesis00140 M NSteroid hormone biosynthesis00561 MGlycerolipid metabolism00564 MGlycerophospholipid metabolism00565 MEther lipid metabolism00600 M NSphingolipid metabolism00590Arachidonic acid metabolism00591Linoleic acid metabolism00592 Malpha-Linolenic acid metabolism01040 M NBiosynthesis of unsaturated fatty acids
+1.4 Nucleotide metabolism
+00230 M NPurine metabolism00240 MPyrimidine metabolism
+1.5 Amino acid metabolism
+00250 MAlanine, aspartate and glutamate metabolism00260 M NGlycine, serine and threonine metabolism00270 M NCysteine and methionine metabolism00280 M NValine, leucine and isoleucine degradation00290 MValine, leucine and isoleucine biosynthesis00300 MLysine biosynthesis00310 M NLysine degradation00220 M NArginine biosynthesis00330 M NArginine and proline metabolism00340 MHistidine metabolism00350 M NTyrosine metabolism00360 MPhenylalanine metabolism00380 M NTryptophan metabolism00400 M NPhenylalanine, tyrosine and tryptophan biosynthesis
+1.6 Metabolism of other amino acids
+00410 Mbeta-Alanine metabolism00430 MTaurine and hypotaurine metabolism00440Phosphonate and phosphinate metabolism00450Selenocompound metabolism00460 MCyanoamino acid metabolism00470 MD-Amino acid metabolism00480 M NGlutathione metabolism
+1.7 Glycan biosynthesis and metabolism
+00510 M NN-Glycan biosynthesis00513 MVarious types of N-glycan biosynthesis00512 MMucin type O-glycan biosynthesis00515 M NMannose type O-glycan biosynthesis00514Other types of O-glycan biosynthesis00532 M NGlycosaminoglycan biosynthesis - chondroitin sulfate / dermatan sulfate00534 M NGlycosaminoglycan biosynthesis - heparan sulfate / heparin00533Glycosaminoglycan biosynthesis - keratan sulfate00531 M NGlycosaminoglycan degradation00563 M NGlycosylphosphatidylinositol (GPI)-anchor biosynthesis00601 M NGlycosphingolipid biosynthesis - lacto and neolacto series00603 M NGlycosphingolipid biosynthesis - globo and isoglobo series00604 MGlycosphingolipid biosynthesis - ganglio series00511Other glycan degradation00540 MLipopolysaccharide biosynthesis00542O-Antigen repeat unit biosynthesis00541 MO-Antigen nucleotide sugar biosynthesis00550Peptidoglycan biosynthesis00552Teichoic acid biosynthesis00571Lipoarabinomannan (LAM) biosynthesis00572Arabinogalactan biosynthesis - Mycobacterium00543Exopolysaccharide biosynthesis
+1.8 Metabolism of cofactors and vitamins
+00730 MThiamine metabolism00740 MRiboflavin metabolism00750 MVitamin B6 metabolism00760 MNicotinate and nicotinamide metabolism00770 MPantothenate and CoA biosynthesis00780 MBiotin metabolism00785 M NLipoic acid metabolism00790 M NFolate biosynthesis00670 M NOne carbon pool by folate00830Retinol metabolism00860 M NPorphyrin metabolism00130 MUbiquinone and other terpenoid-quinone biosynthesis
+1.9 Metabolism of terpenoids and polyketides
+00900 M NTerpenoid backbone biosynthesis00902Monoterpenoid biosynthesis00909Sesquiterpenoid and triterpenoid biosynthesis00904 MDiterpenoid biosynthesis Including: Gibberellin biosynthesis00906 MCarotenoid biosynthesis00905 MBrassinosteroid biosynthesis00981Insect hormone biosynthesis00908Zeatin biosynthesis00903Limonene degradation Title changed!00907Pinene, camphor and geraniol degradation New!01052Type I polyketide structures00522 MBiosynthesis of 12-, 14- and 16-membered macrolides Including: Tylosin biosynthesis, Mycinamicin biosynthesis, Erythromycin biosynthesis, Oleandomycin biosynthesis, Pikromycin/methymycin biosynthesis, Avermectin biosynthesis01051Biosynthesis of ansamycins01059 MBiosynthesis of enediyne antibiotics01056 MBiosynthesis of type II polyketide backbone01057 MBiosynthesis of type II polyketide products00253 MTetracycline biosynthesis00523 MPolyketide sugar unit biosynthesis01054Nonribosomal peptide structures01053Biosynthesis of siderophore group nonribosomal peptides01055Biosynthesis of vancomycin group antibiotics
+1.10 Biosynthesis of other secondary metabolites
+00940 MPhenylpropanoid biosynthesis00945Stilbenoid, diarylheptanoid and gingerol biosynthesis00941 MFlavonoid biosynthesis00944Flavone and flavonol biosynthesis00942Anthocyanin biosynthesis00943 MIsoflavonoid biosynthesis00946 MDegradation of flavonoids00901 MIndole alkaloid biosynthesis00403 MIndole diterpene alkaloid biosynthesis00950 MIsoquinoline alkaloid biosynthesis00960Tropane, piperidine and pyridine alkaloid biosynthesis00996Biosynthesis of various alkaloids Including: Cucurbitacin biosynthesis, Solanine and tomatine biosynthesis, Ephedrine biosynthesis, Capsaicin biosynthesis, Acridone alkaloid biosynthesis00232 MCaffeine metabolism00965 MBetalain biosynthesis00966 MGlucosinolate biosynthesis00402Benzoxazinoid biosynthesis00311 MPenicillin and cephalosporin biosynthesis00332 MCarbapenem biosynthesis00261 MMonobactam biosynthesis00331 MClavulanic acid biosynthesis00521 MStreptomycin biosynthesis00524Neomycin, kanamycin and gentamicin biosynthesis00525 MAcarbose and validamycin biosynthesis00401Novobiocin biosynthesis00404 MStaurosporine biosynthesis00405 MPhenazine biosynthesis00333 MProdigiosin biosynthesis00254 MAflatoxin biosynthesis00998 MBiosynthesis of various antibiotics Including: Kanosamine biosynthesis, Aurachin biosynthesis, Bacilysin biosynthesis, Puromycin biosynthesis, Dapdiamides biosynthesis, Fosfomycin biosynthesis, Cremeomycin biosynthesis, Fumagillin biosynthesis, Pentalenolactone biosynthesis, Terpentecin biosynthesis, Roseoflavin biosynthesis, Cycloserine biosynthesis00999 MBiosynthesis of various plant secondary metabolites Including: Crocin biosynthesis, Ginsenoside biosynthesis, Saponin adjuvant biosynthesis, Cannabidiol biosynthesis, Mugineic acid biosynthesis, Pentagalloylglucose biosynthesis, Benzoxazinoid biosynthesis, Gramine biosynthesis, Coumarin biosynthesis, Furanocoumarin biosynthesis, Hordatine biosynthesis, Podophyllotoxin biosynthesis00997 MBiosynthesis of various other secondary metabolites Including: Ditryptophenaline biosynthesis, Fumiquinazoline D biosynthesis, Paerucumarin biosynthesis, Staphyloferrin B biosynthesis, Cyclooctatin biosynthesis, Lovastatin biosynthesis, Grixazone biosynthesis, Staphyloferrin A biosynthesis, Ethynylserine biosynthesis, Aerobactin biosynthesis
+1.11 Xenobiotics biodegradation and metabolism
+00362 MBenzoate degradation00627 MAminobenzoate degradation00364Fluorobenzoate degradation00625Chloroalkane and chloroalkene degradation00361 MChlorocyclohexane and chlorobenzene degradation00623 MToluene degradation00622 MXylene degradation00633Nitrotoluene degradation00642Ethylbenzene degradation00643Styrene degradation00791Atrazine degradation00930Caprolactam degradation00363Bisphenol degradation00621 MDioxin degradation00626 MNaphthalene degradation00624 MPolycyclic aromatic hydrocarbon degradation00365Furfural degradation00984Steroid degradation00980Metabolism of xenobiotics by cytochrome P45000982Drug metabolism - cytochrome P45000983Drug metabolism - other enzymes
+1.12 Chemical structure transformation maps
+01010Overview of biosynthetic pathways01060Biosynthesis of plant secondary metabolites01061Biosynthesis of phenylpropanoids01062Biosynthesis of terpenoids and steroids01063Biosynthesis of alkaloids derived from shikimate pathway01064Biosynthesis of alkaloids derived from ornithine, lysine and nicotinic acid01065Biosynthesis of alkaloids derived from histidine and purine01066Biosynthesis of alkaloids derived from terpenoid and polyketide01070Biosynthesis of plant hormones
+2.1 Transcription
+03020RNA polymerase03022Basal transcription factors03040Spliceosome
+2.2 Translation
+03010Ribosome00970Aminoacyl-tRNA biosynthesis03013Nucleocytoplasmic transport03015mRNA surveillance pathway03008Ribosome biogenesis in eukaryotes
+2.3 Folding, sorting and degradation
+03060Protein export04141 NProtein processing in endoplasmic reticulum04130SNARE interactions in vesicular transport04120Ubiquitin mediated proteolysis04122Sulfur relay system03050Proteasome03018RNA degradation
+2.4 Replication and repair
+03030DNA replication03410 NBase excision repair03420 NNucleotide excision repair03430Mismatch repair03440Homologous recombination03450Non-homologous end-joining03460Fanconi anemia pathway
+2.5 Chromosome
+03083Polycomb repressive complex
+2.6 Information processing in viruses
+03230Viral genome structure03240Viral replication03250Viral life cycle - HIV-103260Virion - Human immunodeficiency virus03262Virion - Coronavirus03261Virion - Influenza A virus03263Virion - Enterovirus03264Virion - Flavivirus03265Virion - Lyssavirus03266Virion - Herpesvirus03268Virion - Orthopoxvirus03267Virion - Adenovirus
+3.1 Membrane transport
+02010ABC transporters02060Phosphotransferase system (PTS)03070Bacterial secretion system
+3.2 Signal transduction
+02020Two-component system04010 NMAPK signaling pathway04013MAPK signaling pathway - fly04016MAPK signaling pathway - plant04011MAPK signaling pathway - yeast04012 NErbB signaling pathway04014 NRas signaling pathway04015Rap1 signaling pathway04310 NWnt signaling pathway04330 NNotch signaling pathway04340 NHedgehog signaling pathway04341Hedgehog signaling pathway - fly04350 NTGF-beta signaling pathway04390Hippo signaling pathway04391Hippo signaling pathway - fly04392Hippo signaling pathway - multiple species04370VEGF signaling pathway04371Apelin signaling pathway04630 NJAK-STAT signaling pathway04064 NNF-kappa B signaling pathway04668 NTNF signaling pathway04066 NHIF-1 signaling pathway04068FoxO signaling pathway04020 NCalcium signaling pathway04070Phosphatidylinositol signaling system04072Phospholipase D signaling pathway04071Sphingolipid signaling pathway04024 NcAMP signaling pathway04022cGMP-PKG signaling pathway04151 NPI3K-Akt signaling pathway04152AMPK signaling pathway04150 NmTOR signaling pathway04075Plant hormone signal transduction
+3.3 Signaling molecules and interaction
+04080Neuroactive ligand-receptor interaction04060Cytokine-cytokine receptor interaction04061Viral protein interaction with cytokine and cytokine receptor04512ECM-receptor interaction04514Cell adhesion molecules
+4.1 Transport and catabolism
+04144Endocytosis04145 NPhagosome04142Lysosome04146Peroxisome04140 NAutophagy - animal04138Autophagy - yeast04136Autophagy - other04137 NMitophagy - animal04139Mitophagy - yeast
+4.2 Cell growth and death
+04110 NCell cycle04111Cell cycle - yeast04112Cell cycle - Caulobacter04113Meiosis - yeast04114Oocyte meiosis04210 NApoptosis04214Apoptosis - fly04215Apoptosis - multiple species04216 NFerroptosis04217 NNecroptosis04115p53 signaling pathway04218Cellular senescence
+4.3 Cellular community - eukaryotes
+04510 NFocal adhesion04520Adherens junction04530 NTight junction04540Gap junction04550Signaling pathways regulating pluripotency of stem cells
+4.4 Cellular community - prokaryotes
+02024Quorum sensing05111Biofilm formation - Vibrio cholerae02025Biofilm formation - Pseudomonas aeruginosa02026Biofilm formation - Escherichia coli
+4.5 Cell motility
+02030Bacterial chemotaxis02040Flagellar assembly04814Motor proteins 04810 NRegulation of actin cytoskeleton
+5.1 Immune system
+04640Hematopoietic cell lineage04610 NComplement and coagulation cascades04611Platelet activation04613Neutrophil extracellular trap formation04620 NToll-like receptor signaling pathway04624Toll and Imd signaling pathway04621 NNOD-like receptor signaling pathway04622 NRIG-I-like receptor signaling pathway04623 NCytosolic DNA-sensing pathway04625C-type lectin receptor signaling pathway04650Natural killer cell mediated cytotoxicity04612 NAntigen processing and presentation04660 NT cell receptor signaling pathway04658Th1 and Th2 cell differentiation04659Th17 cell differentiation04657IL-17 signaling pathway04662 NB cell receptor signaling pathway04664Fc epsilon RI signaling pathway04666 NFc gamma R-mediated phagocytosis04670Leukocyte transendothelial migration04672Intestinal immune network for IgA production04062 NChemokine signaling pathway
+5.2 Endocrine system
+04911Insulin secretion04910Insulin signaling pathway04922Glucagon signaling pathway04923Regulation of lipolysis in adipocytes04920Adipocytokine signaling pathway03320PPAR signaling pathway04929 NGnRH secretion04912 NGnRH signaling pathway04913Ovarian steroidogenesis04915 NEstrogen signaling pathway04914Progesterone-mediated oocyte maturation04917 NProlactin signaling pathway04921Oxytocin signaling pathway04926Relaxin signaling pathway04935 NGrowth hormone synthesis, secretion and action04918 NThyroid hormone synthesis04919 NThyroid hormone signaling pathway04928 NParathyroid hormone synthesis, secretion and action04916Melanogenesis04924Renin secretion04614Renin-angiotensin system04925 NAldosterone synthesis and secretion04927 NCortisol synthesis and secretion
+5.3 Circulatory system
+04260Cardiac muscle contraction04261 NAdrenergic signaling in cardiomyocytes04270Vascular smooth muscle contraction
+5.4 Digestive system
+04970Salivary secretion04971Gastric acid secretion04972Pancreatic secretion04976Bile secretion04973Carbohydrate digestion and absorption04974Protein digestion and absorption04975Fat digestion and absorption04979 NCholesterol metabolism04977Vitamin digestion and absorption04978Mineral absorption
+5.5 Excretory system
+04962 NVasopressin-regulated water reabsorption04960Aldosterone-regulated sodium reabsorption04961 NEndocrine and other factor-regulated calcium reabsorption04964Proximal tubule bicarbonate reclamation04966Collecting duct acid secretion
+5.6 Nervous system
+04724 NGlutamatergic synapse04727GABAergic synapse04725Cholinergic synapse04728 NDopaminergic synapse04726Serotonergic synapse04720 NLong-term potentiation04730 NLong-term depression04723Retrograde endocannabinoid signaling04721Synaptic vesicle cycle04722Neurotrophin signaling pathway
+5.7 Sensory system
+04744Phototransduction04745Phototransduction - fly04740Olfactory transduction04742Taste transduction04750Inflammatory mediator regulation of TRP channels
+5.8 Development and regeneration
+04320Dorso-ventral axis formation04360Axon guidance04361Axon regeneration04380Osteoclast differentiation
+5.9 Aging
+04211Longevity regulating pathway04212Longevity regulating pathway - worm04213Longevity regulating pathway - multiple species
+5.10 Environmental adaptation
+04710Circadian rhythm04713Circadian entrainment04711Circadian rhythm - fly04712Circadian rhythm - plant04714 NThermogenesis04626Plant-pathogen interaction
+6.1 Cancer: overview
+05200 NPathways in cancer05202Transcriptional misregulation in cancer05206MicroRNAs in cancer05205Proteoglycans in cancer05204 NChemical carcinogenesis - DNA adducts05207 NChemical carcinogenesis - receptor activation05208 NChemical carcinogenesis - reactive oxygen species05203Viral carcinogenesis05230Central carbon metabolism in cancer05231Choline metabolism in cancer05235PD-L1 expression and PD-1 checkpoint pathway in cancer
+6.2 Cancer: specific types
+05210 NColorectal cancer05212 NPancreatic cancer05225 NHepatocellular carcinoma05226 NGastric cancer05214 NGlioma05216 NThyroid cancer05221 NAcute myeloid leukemia05220 NChronic myeloid leukemia05217 NBasal cell carcinoma05218 NMelanoma05211 NRenal cell carcinoma05219 NBladder cancer05215 NProstate cancer05213 NEndometrial cancer05224 NBreast cancer05222 NSmall cell lung cancer05223 NNon-small cell lung cancer
+6.3 Infectious disease: viral
+05166 NHuman T-cell leukemia virus 1 infection05170 NHuman immunodeficiency virus 1 infection05161 NHepatitis B05160 NHepatitis C05171 NCoronavirus disease - COVID-1905164 NInfluenza A05162 NMeasles05168 NHerpes simplex virus 1 infection05163 NHuman cytomegalovirus infection05167 NKaposi sarcoma-associated herpesvirus infection05169 NEpstein-Barr virus infection05165 NHuman papillomavirus infection
+6.4 Infectious disease: bacterial
+05110Vibrio cholerae infection05120Epithelial cell signaling in Helicobacter pylori infection05130 NPathogenic Escherichia coli infection05132 NSalmonella infection05131 NShigellosis05135 NYersinia infection05133Pertussis05134Legionellosis05150Staphylococcus aureus infection05152Tuberculosis05100Bacterial invasion of epithelial cells
+6.5 Infectious disease: parasitic
+05146Amoebiasis05144Malaria05145Toxoplasmosis05140Leishmaniasis05142Chagas disease05143African trypanosomiasis
+6.6 Immune disease
+05310Asthma05322Systemic lupus erythematosus05323Rheumatoid arthritis05320Autoimmune thyroid disease05321Inflammatory bowel disease05330Allograft rejection05332Graft-versus-host disease05340Primary immunodeficiency
+6.7 Neurodegenerative disease
+05010 NAlzheimer disease05012 NParkinson disease05014 NAmyotrophic lateral sclerosis05016 NHuntington disease05017 NSpinocerebellar ataxia05020 NPrion disease05022 NPathways of neurodegeneration - multiple diseases
+6.8 Substance dependence
+05030Cocaine addiction05031Amphetamine addiction05032Morphine addiction05033Nicotine addiction05034Alcoholism
+6.9 Cardiovascular disease
+05417Lipid and atherosclerosis05418Fluid shear stress and atherosclerosis05410Hypertrophic cardiomyopathy05412Arrhythmogenic right ventricular cardiomyopathy05414Dilated cardiomyopathy05415Diabetic cardiomyopathy05416Viral myocarditis
+6.10 Endocrine and metabolic disease
+04930Type II diabetes mellitus04940Type I diabetes mellitus04950Maturity onset diabetes of the young04936Alcoholic liver disease04932Non-alcoholic fatty liver disease04931Insulin resistance04933AGE-RAGE signaling pathway in diabetic complications04934 NCushing syndrome
+6.11 Drug resistance: antimicrobial
+01501beta-Lactam resistance01502Vancomycin resistance01503Cationic antimicrobial peptide (CAMP) resistance
+6.12 Drug resistance: antineoplastic
+01521EGFR tyrosine kinase inhibitor resistance01524Platinum drug resistance01523Antifolate resistance01522Endocrine resistance
+7.1 Chronology: Antiinfectives
+07011Penicillins07012Cephalosporins - parenteral agents07013Cephalosporins - oral agents07021Aminoglycosides07019Tetracyclines07020Macrolides and ketolides07014Quinolones07023Rifamycins07026Antifungal agents07044Antiviral agents07053Anti-HIV agents
+7.2 Chronology: Antineoplastics
+07040Antineoplastics - alkylating agents07041Antineoplastics - antimetabolic agents07042Antineoplastics - agents from natural products07043Antineoplastics - hormones07045Antineoplastics - protein kinase inhibitors
+7.3 Chronology: Nervous system agents
+07032Hypnotics07030Anxiolytics07033Anticonvulsants07015Local analgesics07039Opioid analgesics07028Antipsychotics07029Antipsychotics - phenothiazines07031Antipsychotics - butyrophenones07027Antidepressants07056Agents for Alzheimer-type dementia07057Antiparkinsonian agents
+7.4 Chronology: Other drugs
+07055Sulfonamide derivatives - overview07016Sulfonamide derivatives - sulfa drugs07017Sulfonamide derivatives - diuretics07018Sulfonamide derivatives - hypoglycemic agents07037Antiarrhythmic drugs07038Antiulcer drugs07046Immunosuppressive agents07047Osteoporosis drugs07048Antimigraines07049Antithrombosis agents07050Antirheumatics - DMARDs and biological agents07051Antidiabetics07052Antidyslipidemic agents07054Antiglaucoma agents
+7.5 Target-based classification: G protein-coupled receptors
+07220Cholinergic and anticholinergic drugs07215alpha-Adrenergic receptor agonists/antagonists07214beta-Adrenergic receptor agonists/antagonists07213Dopamine receptor agonists/antagonists07212Histamine H1 receptor antagonists07227Histamine H2/H3 receptor agonists/antagonists07211Serotonin receptor agonists/antagonists07228Eicosanoid receptor agonists/antagonists07224Opioid receptor agonists/antagonists07229Angiotensin receptor and endothelin receptor antagonists
+7.6 Target-based classification: Nuclear receptors
+07225Glucocorticoid and mineralocorticoid receptor agonists/antagonists07226Progesterone, androgen and estrogen receptor agonists/antagonists07223Retinoic acid receptor (RAR) and retinoid X receptor (RXR) agonists/antagonists07222Peroxisome proliferator-activated receptor (PPAR) agonists
+7.7 Target-based classification: Ion channels
+07221Nicotinic cholinergic receptor antagonists07230GABA-A receptor agonists/antagonists07036Calcium channel blocking drugs07231Sodium channel blocking drugs07232Potassium channel blocking and opening drugs07235N-Methyl-D-aspartic acid (NMDA) receptor antagonists
+7.8 Target-based classification: Transporters
+07233Ion transporter inhibitors07234Neurotransmitter transporter inhibitors
+7.9 Target-based classification: Enzymes
+07216Catecholamine transferase inhibitors07219Cyclooxygenase inhibitors07024HMG-CoA reductase inhibitors07217Renin-angiotensin system inhibitors07218HIV protease inhibitors
+7.10 Structure-based classification
+07025Quinolines07034Eicosanoids07035Prostaglandins
+7.11 Skeleton-based classification
+07110Benzoic acid family071121,2-Diphenyl substitution family07114Naphthalene family07117Benzodiazepine family
