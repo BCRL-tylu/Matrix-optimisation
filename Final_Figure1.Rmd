@@ -1,0 +1,248 @@
+```{r figure1B}
+library(dplyr)
+library(ggplot2)
+# Set root directory
+root_directory = "/stornext/Home/data/allstaff/l/lu.t/paper_final"
+# Set working directory
+setwd(root_directory)
+filefold = paste0(root_directory,"/small_molecule_processed_peakbins")
+# Give names
+names = c("9AA-",
+                "9AA+",
+                "9AA(2step)-",
+                "9AA(2step)+",
+                "DHB+",
+                "DHB-",
+                "CHCA(2step)+",
+                "CHCA(2step)-",
+                "CHCA+",
+                "CHCA-")
+# Get the list of background peaks
+peak_b = list()
+peak = list()
+for(i in 1:10){
+  filename = paste0(names[i],".RData")
+    load(paste0(filefold,"/",filename))
+  peak_b[[names[i]]] = peaksum_b_df
+  peak[[names[i]]] = peaksum_df
+}
+# Get filtered peak list against the background
+peak = list()
+matrix_back = list()
+for(i in 1:10){
+  filename = paste0(names[i],".RData")
+  load(paste0(filefold,"/",filename))
+  peak_b_temp =  peak_b[[names[i]]]
+  temp_peaksum = peaksum_df %>% rowwise() %>% filter(all(abs(mz-peak_b_temp$mz)/mz>=46e-6))
+  matrix_back[[names[i]]]= peaksum_df %>% rowwise() %>% filter(!all(abs(mz-peak_b_temp$mz)/mz>=46e-6))
+  peak[[names[i]]] = temp_peaksum 
+}
+# calculate MSE_score
+MSE = c()
+for(i in 1:10){
+  MSE[i] = sum(peak[[i]]$mean)/(sum(peak[[i]]$mean)+sum(matrix_back[[i]]$mean))
+}
+
+barplot = data.frame(score = MSE[-c(5,6)],
+                     mp =names[-c(5,6)]
+                               )
+# MSE plot
+MSEplot = ggplot(data = barplot, aes(x = factor(mp, level =names[-c(5,6)]),y = as.double(score),fill = mp)) +
+  geom_bar(stat="identity")+
+  scale_fill_manual(values = c("9AA-"="#007AB6",
+                                   "9AA+" = "#ABC7E6",
+                                   "9AA(2step)-"="#413975",
+                                   "9AA(2step)+"= "#9068AC",
+                                   "CHCA(2step)+"="#5AC096",
+                                   "CHCA(2step)-"= "#2FA143",
+                                   "CHCA+"="#C3A128",
+                                   "CHCA-"="#916729"), guide = "none")+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank())
+
+ggsave("MSEplot_small_molecule.svg",
+       width = 8,
+       height = 4,
+       dpi = 600)
+
+# Spetrum plot
+spectrum_df = bind_rows(peak, .id = "column_label")
+identified_peak_bins = unique(spectrum_df$mz)
+
+for(i in 1:length(peak)){
+  temp_data = peak[[i]]
+  append = data.frame(mz = identified_peak_bins[which(!identified_peak_bins %in% temp_data$mz)])
+  append = append %>% mutate(mean = rep(0, times = nrow(append))) %>% mutate(max = mean)
+  temp_return = rbind(temp_data, append)
+  peak[[i]] = temp_return 
+}
+
+# Set colour
+col = c("red","red2","red3","red4","orange","orange2","orange3",
+        "green1","green2","green3","blue1","blue2","blue3",
+        "lightskyblue","lightblue","grey90")
+
+# Compute another storage
+spectrum_df_modified = bind_rows(peak, .id = "column_label")
+# Plot for negative polarity
+spectrum_df_modified[which(!grepl(spectrum_df_modified$column_label,
+                                               pattern = "[+]")),] %>%
+  arrange(column_label) %>% ggplot(aes(x = as.factor(round(mz,digits = 7)), y = reorder(column_label, nchar(column_label, type = "bytes"),decreasing=T), fill = log1p(mean))) + 
+  geom_tile() +
+  scale_fill_gradientn(colors = rev(col))+ theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))+scale_x_discrete(guide = guide_axis(check.overlap = TRUE))
+ggsave("bin_sptectrumplot_negative.svg",
+       width = 8,
+       height = 4,
+       dpi = 600)
+dev.off()
+
+# positive polarity
+spectrum_df_modified[which(grepl(spectrum_df_modified$column_label,
+                                               pattern = "[+]")),] %>%
+  arrange(column_label) %>% ggplot( aes(x = as.factor(round(mz,digits = 7)), y = reorder(column_label, nchar(column_label, type = "bytes"),decreasing=T), fill = log1p(mean))) + 
+  geom_tile()+
+  scale_fill_gradientn(colors = rev(col))+ theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+panel.grid.minor = element_blank(), axis.line = element_line(colour = "black")) +scale_x_discrete(guide = guide_axis(check.overlap = TRUE))
+ggsave("bin_sptectrumplot_positive.svg",
+       width = 8,
+       height = 4,
+       dpi = 600)
+dev.off()
+# TIC spectrum plot
+# CHCA2+
+data1 = data.frame(peak[[7]])
+# 9AA-
+data2 = data.frame(peak[[1]])
+# binning function
+binning = function(a,b){
+  return(rep(a, as.integer(round(b,digit=0))))
+}
+#
+bins1 = data.frame(value = do.call(binning, list(data1$mz[-which.max(data1$mean)],data1$mean[-which.max(data1$mean)]))) 
+bins1 = bins1 %>% mutate(matrix = rep(names[7], times = nrow(bins1)))%>% 
+  mutate(numsign = rep(1, times = nrow(bins1))) %>% mutate(col = rep("CHCA2+", times = nrow(bins1)))
+
+bins2 = data.frame(value = do.call(binning, list(data2$mz,data2$mean)))
+bins2 = bins2 %>% mutate(matrix = rep(names[1], times = nrow(bins2)))%>%
+  mutate(numsign = rep(-1, times = nrow(bins2))) %>% mutate(col = rep("9AA-", times = nrow(bins2)))
+bins = rbind(bins1,bins2)
+#
+ggplot(bins, aes(x=value, num = numsign)) +  
+  geom_density(aes(y =..scaled..*num*as.numeric(max(data1$mean)),colour =col),bw = 0.004,n=4096)+
+  #geom_histogram(bins = 800)+
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank())+
+  labs(y= "Average intensity", x = "m/z")+
+  ggtitle(paste0("The intensity of m/z peaks"))#+
+  #scale_y_continuous(trans = "log1p")
+```
+
+```{r figure1B-lipids}
+library(dplyr)
+library(ggplot2)
+# Set root directory
+root_directory = "/stornext/Home/data/allstaff/l/lu.t/paper_final"
+# Set working directory
+setwd(root_directory)
+filefold = paste0(root_directory,"/lipids_processed_peakbins")
+# Give names
+names = c("9AA-",
+                "9AA+",
+                "CHCA(2step)-",
+                "CHCA(2step)+")
+# Get the list of background peaks
+peak_b = list()
+for(i in 1:4){
+  filename = paste0(names[i],"_peaksum.RData")
+    load(paste0(filefold,"/",filename))
+  peak_b[[names[i]]] = peaksum_b_df
+}
+# Get filtered peak list against the background
+peak = list()
+for(i in 1:4){
+    filename = paste0(names[i],"_peaksum.RData")
+  load(paste0(filefold,"/",filename))
+  peak_b_temp =  peak_b[[names[i]]]
+  temp_peaksum = peaksum_df %>% rowwise() %>% filter(all(abs(mz-peak_b_temp$mz)/mz>=50e-6))
+  peak[[names[i]]] = temp_peaksum 
+}
+
+
+# Spetrum plot
+spectrum_df = bind_rows(peak, .id = "column_label")
+identified_peak_bins = unique(spectrum_df$mz)
+
+for(i in 1:length(peak)){
+  temp_data = peak[[i]]
+  append = data.frame(mz = identified_peak_bins[which(!identified_peak_bins %in% temp_data$mz)])
+  append = append %>% mutate(mean = rep(0, times = nrow(append))) %>% mutate(max = mean)
+  temp_return = rbind(temp_data, append)
+  peak[[i]] = temp_return 
+}
+col = c("red","red2","red3","red4","orange","orange2","orange3","green1","green2","green3","blue1","blue2","blue3","lightskyblue","lightblue","grey90")
+
+# Compute another storage
+spectrum_df_modified = bind_rows(peak, .id = "column_label")
+# Plot for negative polarity
+spectrum_df_modified[which(!grepl(spectrum_df_modified$column_label,
+                                               pattern = "[+]")),] %>%
+  arrange(column_label) %>% ggplot(aes(x = as.factor(round(mz,digits = 7)), y = reorder(column_label, nchar(column_label, type = "bytes"),decreasing=T), fill = log1p(mean))) + 
+  geom_tile() +
+  scale_fill_gradientn(colors = rev(col))+ theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))+scale_x_discrete(guide = guide_axis(check.overlap = TRUE))
+ggsave("bin_sptectrumplot_negative_lipids.svg",
+       width = 8,
+       height = 4,
+       dpi = 600)
+dev.off()
+
+# positive polarity
+spectrum_df_modified[which(grepl(spectrum_df_modified$column_label,
+                                               pattern = "[+]")),] %>%
+  arrange(column_label) %>% ggplot( aes(x = as.factor(round(mz,digits = 7)), y = reorder(column_label, nchar(column_label, type = "bytes"),decreasing=T), fill = log1p(mean))) + 
+  geom_tile()+
+  scale_fill_gradientn(colors = rev(col))+ theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+panel.grid.minor = element_blank(), axis.line = element_line(colour = "black")) +scale_x_discrete(guide = guide_axis(check.overlap = TRUE))
+ggsave("bin_sptectrumplot_positive_lipids.svg",
+       width = 8,
+       height = 4,
+       dpi = 600)
+dev.off()
+# TIC spectrum plot
+# CHCA2+
+#data1 = data.frame(peak[[7]])
+# 9AA-
+#data2 = data.frame(peak[[1]])
+# binning function
+binning = function(a,b){
+  return(rep(a, as.integer(round(b,digit=0))))
+}
+#
+bins1 = data.frame(value = do.call(binning, list(data1$mz[-which.max(data1$mean)],data1$mean[-which.max(data1$mean)]))) 
+bins1 = bins1 %>% mutate(matrix = rep(names[7], times = nrow(bins1)))%>% 
+  mutate(numsign = rep(1, times = nrow(bins1))) %>% mutate(col = rep("CHCA2+", times = nrow(bins1)))
+
+bins2 = data.frame(value = do.call(binning, list(data2$mz,data2$mean)))
+bins2 = bins2 %>% mutate(matrix = rep(names[1], times = nrow(bins2)))%>%
+  mutate(numsign = rep(-1, times = nrow(bins2))) %>% mutate(col = rep("9AA-", times = nrow(bins2)))
+bins = rbind(bins1,bins2)
+#
+ggplot(bins, aes(x=value, num = numsign)) +  
+  geom_density(aes(y =..scaled..*num*as.numeric(max(data1$mean)),colour =col),bw = 0.004,n=4096)+
+  #geom_histogram(bins = 800)+
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank())+
+  labs(y= "Average intensity", x = "m/z")+
+  ggtitle(paste0("The intensity of m/z peaks"))#+
+  #scale_y_continuous(trans = "log1p")
+```
+

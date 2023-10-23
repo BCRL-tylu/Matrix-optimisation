@@ -1,0 +1,1006 @@
+```{r setenv}
+# The packages are all build under R version 4.2.2
+.libPaths("/stornext/Bioinf/data/lab_brain_cancer/users/t_lu/R/x86_64-pc-linux-gnu-library/4.2")
+library(ggplot2)
+library(ggpattern)
+library(ggtext)
+library(readxl)
+library(RRHO2)
+library(dplyr)
+library(RaMP)
+library(magick)
+library(rsvg)
+library(viridis)
+library(ComplexUpset)
+library(Cairo)
+library(MASS) 
+library(reshape2)
+library(ggnewscale)
+library(magrittr)
+library(seriation)
+library(cowplot)
+library(png)
+library(naturalsort)
+library(transport)
+# Set ramp connection
+pkg.globals <- setConnectionToRaMP(
+  dbname = "ramp", username = "root", conpass = "ADMIN",
+  host = "localhost",socket = "/stornext/Home/data/allstaff/l/lu.t/mysql/var/run/mysqld/mysql.sock")
+```
+
+```{r customfuncs}
+# Get the KDE of the mass spectrum
+ getmzdensity = function(peak, n, bandwidth, adjust){
+    a = c()
+    mean_intensity = round(peak$mean,digit = 0)
+    peak = cbind(peak, mean_intensity)
+    for(i in 1:nrow(peak)){
+      a =c(a,rep(peak$mz[i],times = as.integer(peak$mean_intensity[i])))
+    }
+    # Bandwidth
+    a = data.frame(value = a, id = "a")
+    if(length(is.na(bandwidth)) == 1){
+      des = stats::density(a$value, n=n ,bw = bandwidth, adjust = adjust)
+    }else{
+      des = stats::density(a$value, n=n ,bw = "nrd0", adjust = adjust) 
+    }
+    #des = density(a$value, n=n,bw = bw )
+    coord = cbind( des[["x"]], des[["y"]])
+    pp = pp(coord)
+    return(pp)
+ }
+# modified bandwidth
+bw.ucv.mod <- function(x, nb = 1000L,
+                       h_grid = 10^seq(-3, log10(1.2 * sd(x) *
+                                                   length(x)^(-1/5)), l = 200),
+                       plot_cv = FALSE) {
+  if ((n <- length(x)) < 2L)
+    stop("need at least 2 data points")
+  n <- as.integer(n)
+  if (is.na(n))
+    stop("invalid length(x)")
+  if (!is.numeric(x))
+    stop("invalid 'x'")
+  nb <- as.integer(nb)
+  if (is.na(nb) || nb <= 0L)
+    stop("invalid 'nb'")
+  storage.mode(x) <- "double"
+  hmax <- 1.144 * sqrt(var(x)) * n^(-1/5)
+  Z <- .Call(stats:::C_bw_den, nb, x)
+  d <- Z[[1L]]
+  cnt <- Z[[2L]]
+  fucv <- function(h) .Call(stats:::C_bw_ucv, n, d, cnt, h)
+  ## Original
+  # h <- optimize(fucv, c(lower, upper), tol = tol)$minimum
+  # if (h < lower + tol | h > upper - tol)
+  #   warwarning("minimum occurred at one end of the range")
+  ## Modification
+  obj <- sapply(h_grid, function(h) fucv(h))
+  h <- h_grid[which.min(obj)]
+  if (h %in% range(h_grid)) 
+    warning("minimum occurred at one end of h_grid")
+  if (plot_cv) {
+    plot(h_grid, obj, type = "o")
+    rug(h_grid)
+    abline(v = h, col = 2, lwd = 2)
+  }
+  h
+}
+```
+
+```{r figure2a}
+# Set root directory
+root_directory = "/stornext/Home/data/allstaff/l/lu.t/paper_final"
+# Set working directory
+setwd(root_directory)
+# Read file
+data = readRDS(paste0(root_directory,"/feature_files/small_molecule_annotated_list.RDS"))
+matrix_polarity = paste0(data$matrix, data$polarity)
+#
+if(length(grep(colnames(data), pattern = "matrix_polarity")) == 0){
+  data = cbind(data, matrix_polarity)
+}
+
+# num stores the number of unique detected small molecules, num_mz, number of unique m/z s
+num = c()
+num_mz = c()
+num_backgroundmz = c()
+#
+peaks_file = naturalsort(list.files("/stornext/Bioinf/data/lab_brain_cancer/projects/tme_spatial/metabolomics/221222_optimization/data/output",
+                        pattern = "Tissue1_T_peaksum.RData"))
+
+for(i in peaks_file){
+  load(paste0("/stornext/Bioinf/data/lab_brain_cancer/projects/tme_spatial/metabolomics/221222_optimization/data/output/",i))
+  num_backgroundmz = c(num_backgroundmz, nrow(peaksum_b_df))
+  num_mz =c(num_mz, nrow(peaksum_df))
+}
+names(num_backgroundmz) = c("9AA Sublimation-",
+                            "9AA Sublimation+",
+                            "9AA Sublimation(2step)-",
+                            "9AA Sublimation(2step)+",
+                            "DHB Sublimation+" ,
+                            "DHB Sublimation-",
+                            "CHCA sublimation (2step)+",
+                            "CHCA sublimation (2step)-",
+                            "CHCA sublimation+",
+                            "CHCA sublimation-")
+#
+for(i in 1:length(unique(matrix_polarity))){
+  #num_mz[i] = length(unique(data[which(data$matrix_polarity == unique(matrix_polarity)[i] & data$Tissue == "Tissue1" ),]$exp_mz))
+  num[i] = length(unique(data[which(data$matrix_polarity == unique(matrix_polarity)[i]& data$Tissue == "Tissue1"),]$chemical_formula))
+}
+# barplot = store of the plot data
+barplot = data.frame(cbind(c(num,num_mz),
+                     mp = rep(unique(matrix_polarity), times = 2)),
+                     label = c(rep("Potential chemcial formulas matched", times = length(num)),
+                               rep("Experimental m/z", times = length(num)))
+                               )
+# plot
+ ggplot(data = barplot, aes(x = factor(mp, level = c("9AA Sublimation-",
+                                                        "9AA Sublimation(2step)-",
+                                                        "9AA Sublimation+",
+                                                        "9AA Sublimation(2step)+",
+                                                        "CHCA sublimation-",
+                                                        "CHCA sublimation (2step)-",
+                                                        "CHCA sublimation+",
+                                                        "CHCA sublimation (2step)+",
+                                                        "DHB Sublimation-",
+                                                        "DHB Sublimation+")),y = as.integer(V1),fill = mp,pattern = label))+
+  geom_bar_pattern(position = "dodge",
+                   stat = "identity",
+                   color = "black", 
+                   pattern_fill = "black",
+                   pattern_angle = 45,
+                   pattern_density = 0.1,
+                   pattern_spacing = 0.025,
+                   pattern_key_scale_factor = 0.6)+
+  scale_fill_manual(values = c("9AA Sublimation-"="#007AB6",
+                                   "9AA Sublimation+" = "#ABC7E6",
+                                   "9AA Sublimation(2step)-"="#413975",
+                                   "9AA Sublimation(2step)+"= "#9068AC",
+                                   "DHB Sublimation+"="#FDB772",
+                                   "DHB Sublimation-"="#F77800",
+                                   "CHCA sublimation (2step)+"="#5AC096",
+                                   "CHCA sublimation (2step)-"= "#2FA143",
+                                   "CHCA sublimation+"="#C3A128",
+                                   "CHCA sublimation-"="#916729"), guide = "none")+
+ # scale_fill_manual(values = rep(c("#007AB6",
+ #                                              "#ABC7E6",
+ #                                              "#5AC096",
+ #                                              "#2FA143"),each = 1), guide = "none")+
+  scale_pattern_manual(values = c( `Experimental m/z` = "stripe", 
+                                   `Potential chemcial formulas matched` = "none"))+
+  labs(x = "Matrix/Polarity combinations", y = "Number of Detected Features", pattern = "Type of Feature") + 
+  guides(pattern = guide_legend(override.aes = list(fill = "white")))+
+  scale_x_discrete(guide = guide_axis(n.dodge = 1,
+                                      angle = 45))+
+  theme_bw()+ theme(axis.text.x = element_text(size = 7,
+                                               colour =c("9AA Sublimation-"="#007AB6",
+                                                         "9AA Sublimation+" = "#ABC7E6",
+                                                         "9AA Sublimation(2step)-"="#413975",
+                                                         "9AA Sublimation(2step)+"= "#9068AC",
+                                                         "DHB Sublimation-"="#F77800",
+                                                         "DHB Sublimation+"="#FDB772",
+                                                         "CHCA sublimation (2step)-"= "#2FA143",
+                                                         "CHCA sublimation (2step)+"="#5AC096",
+                                                         "CHCA sublimation-"="#916729",
+                                                         "CHCA sublimation+"="#C3A128"
+                                                         )),
+                    panel.grid.major = element_blank(), panel.grid.minor = element_blank())  
+# Save image 
+ggsave(filename = "Figure2A.svg",
+       width=6*1.681, height=6)
+```
+
+```{r figure2b}
+#Read lcms data
+source_directory = paste0(root_directory,"/bulk_metabolomics")
+lipid = "/Lipids_LCMS"
+polar = "/Polar_LCMS"
+# Get file names
+lipidomics = data.frame(t(read_xlsx(
+  path = paste0(
+    source_directory,
+    lipid,
+    "/",
+    list.files(paste0(source_directory, lipid), pattern = "Lipidomics.xlsx")
+  )
+)))[, 1:6]
+lipidomics = lipidomics %>% `colnames<-`(paste0(lipidomics[1, ], lipidomics[2, ])) %>% dplyr::slice(-c(1, 2))
+#######
+polar_molecule = data.frame(t(read_xlsx(
+  path = paste0(
+    source_directory,
+    polar,
+    "/",
+    list.files(paste0(source_directory, polar),
+               pattern = "xlsx")
+  )[2]
+)))
+polar_molecule = polar_molecule %>% dplyr::select(-c(X3, X10)) %>% `colnames<-`(polar_molecule[1, -c(3, 10)]) %>% dplyr::slice(-c(1))
+# save the loaded data as a list
+lcmsdata = list(lipid = lipidomics,
+                sm = polar_molecule)
+# Adjustment of the data to avoid bad annotation
+lcms_sm_hmdb = sub(".*_", "", rownames(lcmsdata[["sm"]]))
+lcms_sm = polar_molecule %>% `rownames<-`(lcms_sm_hmdb)
+lcms_sm[which(row.names(lcms_sm) == "HMDB0000043"), 1] = 3710 + 7350
+####################################################################
+# Matrix_polarity stores the matrix+polarity combination
+matrix_polarity = paste0(data$matrix, data$polarity)
+#
+if (length(grep(colnames(data), pattern = "matrix_polarity")) == 0) {
+  data = cbind(data, matrix_polarity)
+}
+ims_sm = data[which(data$Tissue == "Tissue1"), ]
+
+### Create a df to store the information of the overlapped metabolites
+comparason_table = data.frame()
+image = list()
+all_matched = list()
+#
+# A loop to drive the RRHO2 heatmap of overlapping
+for (i in unique(matrix_polarity)) {
+  ims_temp = ims_sm[which(ims_sm$matrix_polarity == i), ]
+  ims_matched = ims_temp[which(ims_temp$accession %in% lcms_sm_hmdb), ]
+  
+  ############################
+  temp_acession =  ims_matched$accession
+  ############################
+  ims_matched = ims_matched[!duplicated(ims_matched$accession), ]
+  ims_rrho = data.frame(cbind(HMDB = ims_matched$accession, diff_ims = ims_matched$diff_mean))
+  # Lcms data
+  lcms_temp = lcms_sm[which(rownames(lcms_sm) %in% unique(ims_temp$accession)), ]
+  #remove background
+  lcms_fc = log1p(as.numeric(lcms_temp[, 2]) - as.numeric(lcms_temp[, ncol(lcms_temp)])) - log1p(as.numeric(lcms_temp[, 1]) -
+                                                                                                   as.numeric(lcms_temp[, ncol(lcms_temp)]))
+  # Get overlapped data frame for lcms
+  lcms_rrho = data.frame(cbind(HMDB = rownames(lcms_temp), diff_lcms =  lcms_fc))
+  
+  all_matched[[i]] = merge(ims_rrho, lcms_rrho, by = c("HMDB"))
+  # mean_dm = log1p(mean(exp(ims_temp[which(ims_temp$accession==temp_acession),]$mean_c)-1)/mean(exp(ims_temp[which(ims_temp$accession==temp_acession),]$mean_h)-1))
+  for (j in temp_acession) {
+    temp = ims_temp[which(ims_temp$accession == j), ]
+    mean_dm =  temp[which.min(abs(as.numeric(temp$diff_mean) - as.numeric(lcms_rrho[which(lcms_rrho[, 1] == j), 2]))), ]$diff_mean
+    ##############
+    ims_matched[which(ims_matched$accession == j), ]$diff_mean = mean_dm
+  }
+  
+  test = data.frame(
+    ac = cbind(
+      ims_matched$accession,
+      dm = ims_matched$diff_mean,
+      hmdb = ims_matched$mz_hmdb,
+      detected_mz = ims_matched$exp_mz
+    )
+  )
+  #### fiNAL MUTUAL MATCH
+  
+  
+  # plot
+  if (nrow(ims_rrho) <= 3) {
+    # RRHO_obj <-
+    #   RRHO2_initialize(
+    #     ims_rrho,
+    #     lcms_rrho,
+    #     labels = c("ims", "lcms"),
+    #     log10.ind = F,
+    #     method = "hyper"
+    #   )
+    next
+  } else{
+    RRHO_obj <-
+      RRHO2_initialize(
+        ims_rrho,
+        lcms_rrho,
+        stepsize = 1,
+        labels = c("ims", "lcms"),
+        log10.ind = F,
+        method = "hyper"
+      )
+  }
+  if (!is.null(RRHO_obj)) {
+    length = nrow(RRHO_obj$hypermat)
+    svglite::svglite(paste0(i, ".svg"), width = 6, height = 4)
+    RRHO2_heatmap(RRHO_obj = RRHO_obj,
+                  main = i)
+    dev.off()
+  }
+  ########### get analytic table
+  uu = getPathwayFromAnalyte(paste0("HMDB:", RRHO_obj$genelist_uu$gene_list_overlap_uu))
+  uu = uu[!duplicated(uu$pathwayName), ]
+  uu_comparason_table = data.frame(
+    HMDB = RRHO_obj$genelist_uu$gene_list_overlap_uu,
+    `logFC(Cancer versus normal) IMS` = ims_rrho[which(ims_rrho[, 1] %in% RRHO_obj$genelist_uu$gene_list_overlap_uu), 2],
+    `logFC(Cancer versus normal) LCMS` = lcms_rrho[which(lcms_rrho[, 1] %in% RRHO_obj$genelist_uu$gene_list_overlap_uu), 2],
+    `Metabolite name` = unlist(
+      lapply(RRHO_obj$genelist_uu$gene_list_overlap_uu, function(x) {
+        temp = uu[which(grepl(pattern = x,
+                              uu$inputId)), ]$commonName[1]
+        return(temp)
+      })
+    ),
+    `Common trend` = rep(
+      "Both upregulated in tumour",
+      times = length(RRHO_obj$genelist_uu$gene_list_overlap_uu)
+    ),
+    `Detected matrix` = rep(i, times = length(
+      RRHO_obj$genelist_uu$gene_list_overlap_uu
+    ))
+  )
+  ## downdown
+  dd = getPathwayFromAnalyte(paste0("HMDB:", RRHO_obj$genelist_dd$gene_list_overlap_dd))
+  dd = dd[!duplicated(dd$pathwayName), ]
+  dd_comparason_table = data.frame(
+    HMDB = RRHO_obj$genelist_dd$gene_list_overlap_dd,
+    `logFC(Cancer versus normal) IMS` = ims_rrho[which(ims_rrho[, 1] %in% RRHO_obj$genelist_dd$gene_list_overlap_dd), 2],
+    `logFC(Cancer versus normal) LCMS` = lcms_rrho[which(lcms_rrho[, 1] %in% RRHO_obj$genelist_dd$gene_list_overlap_dd), 2],
+    `Metabolite name` = unlist(
+      lapply(RRHO_obj$genelist_dd$gene_list_overlap_dd, function(x) {
+        temp = dd[which(grepl(pattern = x,
+                              dd$inputId)), ]$commonName[1]
+        return(temp)
+      })
+    ),
+    `Common trend` = rep(
+      "Both downregulated in tumour",
+      times = length(RRHO_obj$genelist_dd$gene_list_overlap_dd)
+    ),
+    `Detected matrix` = rep(i, times = length(
+      RRHO_obj$genelist_dd$gene_list_overlap_dd
+    ))
+  )
+  temp_comparason_table = rbind(uu_comparason_table,
+                                dd_comparason_table)
+  comparason_table = rbind(comparason_table,
+                           temp_comparason_table)
+}
+
+for (i in 1:nrow(comparason_table)) {
+  if (is.na(comparason_table[i, ]$Metabolite.name)) {
+    comparason_table[i, ]$Metabolite.name = unique(ims_sm[which(ims_sm$accession == comparason_table[i, ]$HMDB), ]$name)[1]
+  }
+}
+
+########### Get commonly regulated metabolites
+root_directory = "/stornext/Home/data/allstaff/l/lu.t/paper_final"
+# Set working directory
+setwd(root_directory)
+write.csv(comparason_table,
+          file = "Common_up_down_regulated_small_molecule_metabolites_in_ims.csv")
+
+# for (i in unique(matrix_polarity)) {
+#   image[[i]] = image_read_svg(paste0(i, ".svg")) |> image_ggplot()
+# }
+
+
+# svglite::svglite(paste0("all.svg"), width = 10, height = 15)
+# gridExtra::grid.arrange(image[[1]],
+#                         image[[2]],
+#                         image[[3]],
+#                         image[[4]],
+#                         image[[5]],
+#                         image[[6]],
+#                         image[[7]],
+#                         image[[8]],
+#                         image[[9]],
+#                         image[[10]],
+#                         ncol = 2)
+# dev.off()
+
+# save(RRHO2_heatmap, file = "RRHO_heatmap.Rdata")
+#
+matched_hmdb = all_matched
+
+ratio_df = data.frame()
+for (i in 1:length(all_matched)) {
+  num_matched_hmdb = nrow(all_matched[[i]])
+  num_matched_same_direction_hmdb = length(which(comparason_table$Detected.matrix == names(all_matched)[i]))
+  ratio_df = rbind(
+    ratio_df,
+    rbind(
+      data.frame(
+        num_matched_hmdb = num_matched_hmdb - num_matched_same_direction_hmdb,
+        num_matched_lcms = 145,
+        matrix = names(all_matched)[i],
+        marker = "All matched metabolites"
+      )
+    ),
+    data.frame(
+      num_matched_hmdb = num_matched_same_direction_hmdb,
+      num_matched_lcms = 145,
+      matrix = names(all_matched)[i],
+      marker = "Matched metabolites of same direction"
+    )
+  )
+}
+
+
+library(ggplot2)
+library(viridis)
+library(ggpattern)
+#
+
+#
+temp = ggplot(
+  ratio_df,
+  aes(
+    fill = matrix,
+    y = num_matched_hmdb / num_matched_lcms * 100,
+    x = factor(
+      matrix,
+      level = c(
+        "9AA -",
+        "9AA +" ,
+        "9AA (2step)-" ,
+        "9AA (2step)+",
+        "DHB -" ,
+        "DHB +" ,
+        "CHCA  (2step)-",
+        "CHCA  (2step)+" ,
+        "CHCA -",
+        "CHCA +"
+      )
+    ),
+    pattern = marker
+  )
+) +
+  geom_bar(position = "stack", stat = "identity") +
+  geom_bar_pattern(
+    position = "stack",
+    stat = "identity",
+    color = "black",
+    pattern_fill = "black",
+    pattern_angle = 45,
+    pattern_density = 0.1,
+    pattern_spacing = 0.025,
+    pattern_key_scale_factor = 0.6
+  ) +
+  scale_pattern_manual(
+    values = c(
+      `Matched metabolites of same direction` = "stripe",
+      `All matched metabolites` = "none"
+    )
+  ) +
+  scale_fill_manual(values = rep(
+    c(
+      "9AA -" = "#007AB6",
+      "9AA +" = "#ABC7E6",
+      "9AA (2step)-" = "#413975",
+      "9AA (2step)+" = "#9068AC",
+      "DHB +" = "#FDB772",
+      "DHB -" = "#F77800",
+      "CHCA  (2step)+" = "#5AC096",
+      "CHCA  (2step)-" = "#2FA143",
+      "CHCA +" = "#C3A128",
+      "CHCA -" = "#916729"
+    ),
+    each = 1
+  ), guide = "none") +
+  labs(x = "Matrix/Polarity combinations", y = "Percentage of overlapping metabolites with LCMS (%)", pattern = "Whether the overlapping metabolites \n detected in IMS has same regulatory direction \n as the one detected in LCMS") +
+  ggtitle("Ratio of overlapping metabolites with LCMS for each IMS matrices") + theme(panel.background = element_rect(fill = "white"),
+                                                                                      panel.grid = element_line(color = "grey")) + scale_x_discrete(guide = guide_axis(n.dodge =
+                                                                                                                                                                         2))
+
+ggsave(
+  filename = "Figure2B.svg",
+  plot = temp,
+  width = 13,
+  height = 6 * 1.618,
+  dpi = 600
+)
+```
+
+```{
+r figure2c
+}
+names = c(
+"9AA-",
+"9AA+",
+"9AA(2step)-",
+"9AA(2step)+",
+"DHB+",
+"DHB-",
+"CHCA(2step)+",
+"CHCA(2step)-",
+"CHCA+",
+"CHCA-"
+)
+
+# Set root directory
+root_directory = "/stornext/Home/data/allstaff/l/lu.t/paper_final"
+# Set working directory
+setwd(root_directory)
+
+filefold = paste0(root_directory, "/small_molecule_processed_peakbins")
+peak = list()
+for (i in 1:10) {
+filename = paste0(names[i], ".RData")
+load(paste0(filefold, "/", filename))
+peak[[i]] = peaksum_df
+}
+
+names(peak) = names
+# Take long time to rum
+# within = matrix(0, nrow = 10, ncol = 10)
+# for(i in 1:10){
+#   if(i == 4){
+#     bw = 1
+#     a = getmzdensity(peak = peak[[i]],n=512, bandwidth = bw,adjust = 1)
+#   }else{
+#     a = getmzdensity(peak = peak[[i]],n=512, bandwidth = "ucv",adjust = 1)
+#   }
+#   a = getmzdensity(peak = peak[[i]],n=4096, bandwidth = "ucv", adjust = 1)
+#   for(j in i:10){
+#     if(j == 4){
+#       bw = 5
+#       b = getmzdensity(peak = peak[[j]],n=512, bandwidth =bw,adjust = 1)
+#     }else{
+#       b = getmzdensity(peak = peak[[j]],n=512 , bandwidth = "ucv",adjust = 1)
+#     }
+#     #b = getmzdensity(peak = peak[[j]],n=4096 , bandwidth = "ucv", adjust =1)
+#     within[i,j] = wasserstein(a,b,prob = T)
+#   }
+# }
+# saveRDS(within, "sm_wasserstein_d_matrix.RDS")
+######################
+within = readRDS("wasserstein_d_matrix.RDS")
+x1 = rep(names
+, times = 10)
+x2 = rep(names
+, each = 10)
+#within = wasserstein_d_matrix
+diag(within) = NA
+value = as.vector(within)
+
+matrix_distance = data.frame(cbind(x1, x2, value = as.double(value)))
+matrix_distance$x1 <- factor(
+matrix_distance$x1,
+levels = c(
+"9AA-",
+"9AA+",
+"9AA(2step)-",
+"9AA(2step)+",
+"DHB+",
+"DHB-",
+"CHCA(2step)+",
+"CHCA(2step)-",
+"CHCA+",
+"CHCA-"
+)
+)
+matrix_distance$x2 <- factor(
+matrix_distance$x2,
+levels = c(
+"9AA-",
+"9AA+",
+"9AA(2step)-",
+"9AA(2step)+",
+"DHB+",
+"DHB-",
+"CHCA(2step)+",
+"CHCA(2step)-",
+"CHCA+",
+"CHCA-"
+)
+)
+######### ggplot
+# Negative comaprason
+temp = ggplot(matrix_distance[which(grepl(matrix_distance$x1, pattern = "-") &
+grepl(matrix_distance$x2, pattern = "-")), ], aes(x1, x2)) +
+geom_tile(aes(fill = as.double(value))) +
+scale_fill_gradient(
+low = "yellow",
+high = "#00008B",
+na.value = "grey50",
+name = "wasserstein distance"
+) + theme_bw() + theme(
+panel.grid.major = element_blank(),
+panel.grid.minor = element_blank(),
+axis.title.x = element_blank(),
+axis.title.y = element_blank()
+)
+# save
+ggsave(
+filename = "Negative_matrix_wd.svg",
+plot = temp,
+width = 11,
+height = 9
+)
+# Positive comaprason
+temp = ggplot(matrix_distance[which(
+grepl(matrix_distance$x1, pattern = "[+]") &
+grepl(matrix_distance$x2, pattern = "[+]")
+), ], aes(x1, x2)) +
+geom_tile(aes(fill = as.double(value))) +
+scale_fill_gradient(
+low = "yellow",
+high = "#00008B",
+na.value = "grey50",
+name = "wasserstein distance"
+) + theme_bw() + theme(
+panel.grid.major = element_blank(),
+panel.grid.minor = element_blank(),
+axis.title.x = element_blank(),
+axis.title.y = element_blank()
+)
+# Save
+ggsave(
+filename = "Positive_matrix_wd.svg",
+plot = temp,
+width = 11,
+height = 9
+)
+```
+
+```{r figure2d}
+#########################################################################
+############################################ Use RAMP intrinsic function
+# Create an entry with polarity and matrix
+
+####### query database
+query <- "select * from analytehaspathway"
+con <- connectToRaMP()
+allids <- RMariaDB::dbGetQuery(con, query)
+RMariaDB::dbDisconnect(con)
+kegg_met_allids = subset(allids,
+                         pathwaySource == "kegg" & grepl(rampId, pattern = "RAMP_C"))
+
+kegg_identifier = read.csv(paste0(
+  root_directory,
+  "/Kegg_pathway_identifier/kegg_classifier.csv"
+))
+######################
+for (i in 1:10) {
+  data_r = data[which(data$matrix_polarity == unique(matrix_polarity)[i]), ]
+  data_r = data_r[!duplicated(data_r$accession), ]
+  # only operate once
+  data_r$accession = paste("hmdb:", data_r$accession, sep = "")
+  data_r$cas_registry_number = paste("CAS:", data_r$cas_registry_number, sep =
+                                       "")
+  data_r$chebi_id = paste("chebi:", data_r$chebi_id, sep = "")
+  data_r$chemspider_id = paste("chemspider:", data_r$chemspider_idxx, sep =
+                                 "")
+  # Create a sample
+  pmatrixname = unique(data_r$matrix)
+  search = unique(rbind(
+    data.frame(analytes = data_r$accession),
+    data.frame(analytes = subset(
+      data_r$cas_registry_number,
+      nchar(data_r$cas_registry_number) >= 5
+    )),
+    data.frame(analytes = subset(
+      data_r$chebi_id, nchar(data_r$chebi_id) >= 7
+    )),
+    data.frame(analytes = subset(
+      data_r$chemspider_id, nchar(data_r$hemspider_id) >= 12
+    ))
+  ))
+  fisher.results <-
+    RaMP:::runCombinedFisherTest(
+      search,
+      NameOrIds = "ids",
+      total_genes = 20000,
+      MCall = F,
+      alternative = "less",
+      min_path_size = 0,
+      max_path_size = 150000,
+      background_type = "database",
+      background = "database",
+      pathway_definitions = "RaMP"
+    )
+  #filtered.fisher.results <- FilterFishersResults(fisher.results, pval_type = 'fdr', pval_cutoff=0.05)
+  filtered.fisher.results = fisher.results[[1]][which(fisher.results[[1]]$pathwaySource == "kegg"), ] %>%
+    mutate(id_short = sub("map", "", pathwayId)) %>%
+    mutate(`kegg classifier` = unlist(lapply(id_short, function(x) {
+      temp = kegg_identifier[which(grepl(pattern = x, kegg_identifier$id)), ]$group
+      if (length(temp) != 0) {
+        return(temp)
+      } else{
+        temp = "Deleted pathways from Kegg"
+      }
+    }))) %>%
+    relocate(`kegg classifier`)
+  
+  # recalculate the significance
+  
+  # clusters <- RaMP::findCluster(filtered.fisher.results,
+  #                               perc_analyte_overlap = 0.3,
+  #                               min_pathway_tocluster = 2, perc_pathway_overlap = 0.2
+  # )
+  #results = clusters$fishresults %>% mutate_if(is.numeric, ~ round(., 8))
+  results = filtered.fisher.results %>% mutate_if(is.numeric, ~ round(., 8))
+  ########### append our detected metabolites
+  pathwaydf <- getPathwayFromAnalyte(
+    search,
+    includeRaMPids = TRUE,
+    NameOrIds = "ids",
+    find_synonym = FALSE
+  )
+  filtered_df = pathwaydf[which(pathwaydf$pathwayId %in%  results$pathwayId),]
+  
+  # Recalculated p-val
+  
+  pval = c()
+  for (j in 1:nrow(results)) {
+    total_in_pathway = results$Total_In_Path[j]
+    in_data_in_pathway = results$Num_In_Path[j]
+    not_in_data_in_pathway = total_in_pathway -  in_data_in_pathway
+    in_data_outside_pathway = length(unique(filtered_df$rampId)) -  in_data_in_pathway
+    outside_both = length(which(grepl(pattern = "RAMP_C", unique(allids[which(allids$pathwayRampId %in% unique(filtered_df$pathwayRampId)), ]$rampId)))) - total_in_pathway - in_data_outside_pathway
+    conti_table = data.frame(
+      "in_pathway" = c(in_data_in_pathway, not_in_data_in_pathway),
+      "not_in_pathway" = c(in_data_outside_pathway, outside_both),
+      row.names = c("Detected metabolites", "Not detected metabolites"),
+      stringsAsFactors = FALSE
+    )
+    fisher = fisher.test(conti_table, alternative = "greater")
+    pval[j] = fisher$p.value
+  }
+  
+  results_final = results %>%
+    mutate(Pval = pval) %>%
+    mutate(Pval_FDR = p.adjust(pval, method = "fdr")) %>%
+    mutate(Pval_Holm = p.adjust(pval, method = "holm")) %>%
+    mutate(`Detected versus pathway total ratio` = Num_In_Path / Total_In_Path) %>%
+    dplyr::select(-c("id_short", "analytes", "pathwaySource")) %>%
+    rename("kegg_pathwayname" = "pathwayName") %>%
+    relocate(`Detected versus pathway total ratio`) %>%
+    relocate(`kegg classifier`) %>%
+    arrange(Pval)
+  
+  #########################
+  
+  name = c()
+  for (j in results_final$pathwayId) {
+    commonname = sub("*;.*", "", unique(filtered_df[which(filtered_df$pathwayId ==
+                                                            j), ]$commonName))
+    name = c(name, paste(commonname, collapse = ";\n"))
+  }
+  setwd(paste0(root_directory, "/ORA_sm_results"))
+  results_f = cbind(results_final, Detected_metabolites = name)
+  write.csv(results_f,
+            file = paste0(
+              unique(matrix_polarity)[i],
+              "_ORA_enrichment_results_kegg_version.csv"
+            ))
+  results_f_s = results_f %>% dplyr::select(-Detected_metabolites)
+  write.csv(
+    results_f_s,
+    file = paste0(
+      unique(matrix_polarity)[i],
+      "_ORA_enrichment_results_kegg_no_metabolites_name_version.csv"
+    )
+  )
+  
+}
+##############################################################################################
+temp = list.files(pattern = "*name_version.csv",
+                  path = paste0(root_directory, "/ORA_sm_results"))
+myfiles = lapply(temp, read.csv)
+myfiles = lapply(myfiles, function(x) {
+  x = x[, 1:10]
+  return(x)
+})
+
+
+# Make a data.frame to store graphing stuff
+matrixId = c(
+  "9AA-",
+  "9AA-(Recrystallisation)",
+  "9AA+(Recrystallisation)",
+  "9AA+",
+  "CHCA-(Recrystallisation)",
+  "CHCA+(Recrystallisation)",
+  "CHCA-",
+  "CHCA+",
+  "DHB-",
+  "DHB+"
+)
+plotdf = data.frame()
+for (i in 1:length(myfiles)) {
+  tempdf = cbind(
+    "Pathways" = myfiles[[i]]$kegg_pathwayname,
+    "Matrix" = rep(matrixId[i], length(myfiles[[i]]$kegg_pathwayname)),
+    "pval" = myfiles[[i]]$Pval,
+    "fdr_pval" = myfiles[[i]]$Pval_FDR,
+    "holm_pval" = myfiles[[i]]$Pval_Holm,
+    "id" = myfiles[[i]]$pathwayId,
+    "Classifier" = myfiles[[i]]$kegg.classifier,
+    "ratio" = myfiles[[i]]$Detected.versus.pathway.total.ratio
+  )
+  plotdf = rbind(plotdf, tempdf)
+}
+################################################################################
+View(plotdf)
+plotdf[which(plotdf$Pathways == "Androgen and Estrogen Metabolism"), ]$Classifier = "5.2 Endocrine system"
+plotdf[which(plotdf$Pathways == "Steroidogenesis"), ]$Classifier = "5.2 Endocrine system"
+plotdf[which(plotdf$Pathways == "D-Arginine and D-Ornithine Metabolism"), ]$Classifier = "1.6 Metabolism of other amino acids"
+#
+#plotdf = plotdf[-which(plotdf$Classifier == "Deleted pathways from Kegg"),]
+
+
+
+############
+# ggplot(data=plotdf, aes(Matrix, Pathways,colour = FDR_pval)) + geom_point()
+# dev.off()
+# library(ggplot2)
+#
+# plotdf$Cluster = sapply(plotdf$Pathways,function(x){
+#                  temp = clusters[["fishresults"]][["cluster_assignment"]][which(clusters[["fishresults"]][["pathwayName"]]%in%x)]
+#                  return(temp)
+#                  })
+## Small molecule tissue 2
+# pathway_df =  plotdf
+# pathway_df[which(pathway_df$Cluster == "6, 11"),]$Cluster = 6
+# pathway_df[which(pathway_df$Cluster == "6, 12"),]$Cluster = 6
+# pathway_df[which(pathway_df$Cluster == "5, 6"),]$Cluster = 5
+# pathway_df[which(grepl(pathway_df$Pathway,pattern = "Glycogen",ignore.case = T)
+#                  | grepl(pathway_df$Pathway,pattern = "Glu",ignore.case = T)
+#                  | grepl(pathway_df$Pathway,pattern = "cori",ignore.case = T)),]$Cluster = 2
+# pathway_df[which(grepl(pathway_df$Pathway,pattern = "nucleotide",ignore.case = T)
+#                  | grepl(pathway_df$Pathway,pattern = "purine",ignore.case = T)
+#                  | grepl(pathway_df$Pathway,pattern = "Methionine",ignore.case = T)),]$Cluster = 3
+# pathway_df[which(grepl(pathway_df$Pathway,pattern = "slc",ignore.case = T)),]$Cluster = 1
+# pathway_df[which(grepl(pathway_df$Pathway,pattern = "fatty acid",ignore.case = T)
+#                  | grepl(pathway_df$Pathway,pattern = "cholestoeol",ignore.case = T)),]$Cluster = 4
+# pathway_df[which(grepl(pathway_df$Pathway,pattern = "amino acid",ignore.case = T)),]$Cluster = 5
+#
+# plotdf =pathway_df
+# ####################### Setting colours
+cols <- c(
+  "Carbohydrate metabolism" = '#0f7321',
+  "Energy metabolism" = '#f23a34',
+  "Lipid metabolism" = '#008080',
+  "Nucleotide metabolism" = '#0069b4',
+  "Amino acid metabolism" = '#00ffff',
+  "Metabolism of other amino acids" = '#ffa731',
+  "Metabolism of cofactors and vitamins" = '#fa2b73',
+  "Biosynthesis of other secondary metabolites" = '#f072d4',
+  "Endocrine system" = "#0fd214"
+)
+plotdf = plotdf %>% mutate(group = sub(" ", "", sub(
+  ".*[0-9]", "", sub(".*.[1-9]", "", plotdf$Classifier)
+))) %>%
+  mutate(
+    significance = ifelse(
+      as.numeric(pval) <= 0.1,
+      "Significant at 10% significance level",
+      "Not statistically significant"
+    )
+  )
+cols = unlist(cols)
+cols <- data.frame(color = unlist(cols),
+                   group = names(unlist(cols)))
+
+plotdf <- merge(plotdf, cols, by = "group", all.x = TRUE)
+plotdf$Pathways_colour <-
+  paste0("<span style=\"color: ",
+         plotdf$color,
+         "\">",
+         plotdf$Pathways,
+         "</span>")
+
+plotdf = plotdf[!duplicated(plotdf[, 2:3]), ]
+
+# Get most significant pathways
+n = 50
+filtered_df = data.frame()
+for (i in 1:length(unique(plotdf$Matrix))) {
+  temp = plotdf[which(plotdf$Matrix == unique(plotdf$Matrix)[i]), ]
+  if (nrow(temp) >= n) {
+    temp = temp[order(temp$pval, decreasing = FALSE), ][1:10, ]
+  } else{
+    temp = temp[order(temp$pval, decreasing = FALSE), ][1:nrow(temp), ]
+  }
+  if (i == 1) {
+    filtered_df = temp
+  } else{
+    filtered_df = rbind(filtered_df, temp)
+  }
+}
+##############################
+
+temp = ggplot(data = na.omit(plotdf), aes(
+  x = factor(
+    Matrix,
+    level = c(
+      "9AA-",
+      "9AA-(Recrystallisation)",
+      "9AA+",
+      "9AA+(Recrystallisation)",
+      "CHCA-",
+      "CHCA-(Recrystallisation)",
+      "CHCA+",
+      "CHCA+(Recrystallisation)",
+      "DHB-",
+      "DHB+"
+    )
+  ),
+  y = Pathways_colour,
+  fill = group
+)) +
+  geom_point(aes(colour = as.numeric(pval), size = as.numeric(ratio))) +
+  scale_colour_distiller(
+    name = "P value"
+    ,
+    palette = 'BuGn',
+    limits = c(0, 1),
+    breaks = seq(0, 1, 0.2),
+    direction = -1
+  ) +
+  scale_size_continuous(name = "Ratio of detected metabolites") +
+  new_scale_colour() +
+  geom_point(shape = 1, aes(colour = significance, size = as.numeric(ratio))) +
+  scale_color_manual(
+    values = c(
+      "Significant at 10% significance level" = "red",
+      "Not statistically significant" = "black"
+    )
+  ) +
+  labs(title = "Comparason of pathways between different matrices",
+       y = "Pathways", x = "Matrices molecule/polarity") +
+  theme(
+    title = element_text(size = 15, face = 'bold'),
+    axis.text.x = element_text(
+      size = 12,
+      angle = 90,
+      vjust = 0.5,
+      hjust = 1,
+      colour = c(
+        '9AA-' = "#007AB6",
+        '9AA-(Recrystallisation)' = "#413975",
+        '9AA+' = "#ABC7E6",
+        '9AA+(Recrystallisation)' =
+          "#9068AC",
+        'CHCA-' = "#916729",
+        'CHCA-(Recrystallisation)' =
+          "#2FA143",
+        'CHCA+' = "#C3A128",
+        'CHCA+(Recrystallisation)' =
+          "#5AC096",
+        'DHB-' = "#F77800",
+        'DHB+' = "#FDB772"
+      )
+    ),
+    #20
+    axis.title = element_text(size = 9),
+    #40
+    axis.text.y = element_markdown(size = 9),
+    legend.key.size = unit(1, 'cm'),
+    legend.title = element_text(size = 9),
+    legend.text = element_text(size = 9)
+  ) +
+  new_scale_colour() + theme(panel.background = element_rect(fill = "white"),
+                             panel.grid = element_line(color = "grey")) +
+  geom_tile(
+    aes(fill = group),
+    colour = "white",
+    width = 0 ,
+    height = 0
+  ) +
+  scale_fill_manual(
+    values  = c(
+      "Carbohydrate metabolism" = '#0f7321',
+      "Energy metabolism" = '#f23a34',
+      "Lipid metabolism" = '#008080',
+      "Nucleotide metabolism" = '#0069b4',
+      "Amino acid metabolism" = '#00ffff',
+      "Metabolism of other amino acids" = '#ffa731',
+      "Metabolism of cofactors and vitamins" = '#fa2b73',
+      "Biosynthesis of other secondary metabolites" = '#f072d4',
+      "Endocrine system" = "#0fd214"
+    ),
+    drop = F,
+    name = 'the kegg classifier'
+  )
+
+# save image
+
+ggsave(
+  filename = "Figure2D_modified.svg",
+  plot = temp,
+  width = 10,
+  height = 14
+)
+```
